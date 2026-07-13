@@ -1,10 +1,8 @@
-/* Mee — GET /api/stats?key=ADMIN_KEY  (how many moments, opens, completed sessions) */
-export const config = { runtime: "edge" };
+/* Mee — GET /api/stats?key=ADMIN_KEY  (Node runtime) */
 import { list } from "@vercel/blob";
 
 async function count(prefix) {
-  let n = 0;
-  let cursor;
+  let n = 0, cursor;
   do {
     const res = await list({ prefix: prefix + "/", cursor, limit: 1000 });
     n += res.blobs.length;
@@ -13,12 +11,12 @@ async function count(prefix) {
   return n;
 }
 
-export default async function handler(request) {
-  const { searchParams } = new URL(request.url);
-  if (searchParams.get("key") !== (process.env.ADMIN_KEY || "change-me")) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
+export default async function handler(req, res) {
+  const key = (req.query && req.query.key) || "";
+  if (key !== (process.env.ADMIN_KEY || "change-me")) {
+    return res.status(403).json({ error: "forbidden" });
   }
-  return Response.json({
+  res.status(200).json({
     momentsCreated: await count("events/moment_created"),
     momentsOpened: await count("events/moment_opened"),
     sessionsCompleted: await count("events/session_completed"),
