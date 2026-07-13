@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/m/:id", "destination": "/api/moment?id=:id" }
+  ]
+}

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mee — Breathe the moment</title>
+<meta property="og:title" content="Mee — Breathe the moment">
+<meta property="og:description" content="Pick a moment. Breathe with it. Share it with someone.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:ital,wght@0,300;0,400;1,300&family=Assistant:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #101317;
+  --bone: #EAE6DC;
+  --faint: rgba(234,230,220,.5);
+  --hairline: rgba(234,230,220,.14);
+  --accent-glow: rgba(224,180,137,.28);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--ink);
+  color: var(--bone);
+  font-family: 'Assistant', sans-serif;
+  overflow-x: hidden;
+}
+.serif { font-family: 'Frank Ruhl Libre', serif; font-weight: 300; }
+.caps { font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--faint); }
+
+/* film grain */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 50;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+.screen { display: none; min-height: 100vh; min-height: 100dvh; flex-direction: column; align-items: center; animation: rise .5s ease both; }
+.screen.active { display: flex; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+header { width: 100%; max-width: 460px; padding: 20px 26px 0; display: flex; justify-content: space-between; align-items: baseline; }
+.brand { font-family: 'Frank Ruhl Libre', serif; font-style: italic; font-size: 19px; letter-spacing: .02em; color: var(--bone); text-decoration: none; }
+.langs button { font: inherit; font-size: 11px; letter-spacing: .1em; padding: 4px 7px; border: 0; background: none; cursor: pointer; color: rgba(234,230,220,.35); }
+.langs button.on { color: var(--bone); }
+
+main { max-width: 460px; width: 100%; padding: 34px 26px 48px; display: flex; flex-direction: column; align-items: center; }
+h1 { font-size: 30px; line-height: 1.3; margin: 0 0 26px; text-align: center; font-weight: 300; }
+
+#photoBtn {
+  width: 100%; height: 330px; border: 1px solid rgba(234,230,220,.25); border-radius: 3px;
+  cursor: pointer; overflow: hidden; position: relative; padding: 0;
+  background: linear-gradient(180deg,#16233c 0%,#33415f 36%,#8f5d6e 62%,#c98a63 82%,#e0b489 100%);
+  background-size: cover; background-position: center;
+}
+#photoBtn .hint {
+  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px;
+  align-items: center; justify-content: center; color: var(--bone); background: rgba(16,19,23,.25);
+}
+#photoBtn .plus { width: 46px; height: 46px; border-radius: 50%; border: 1px solid rgba(234,230,220,.4); display: flex; align-items: center; justify-content: center; }
+#photoBtn.has-photo { border-color: var(--hairline); }
+#photoBtn.has-photo .hint { display: none; }
+
+#ambienceLine { margin: 14px 0 0; display: none; }
+
+#msg {
+  margin-top: 26px; width: 100%; background: none; border: 0; border-bottom: 1px solid var(--hairline);
+  padding: 10px 2px; color: var(--bone); font-family: 'Frank Ruhl Libre', serif; font-size: 17px;
+  font-style: italic; text-align: center; outline: none;
+}
+#msg::placeholder { color: rgba(234,230,220,.35); }
+
+/* the breathing start circle */
+.cta {
+  font: inherit; font-size: 13px; font-weight: 400; letter-spacing: .14em;
+  width: 114px; height: 114px; border-radius: 50%;
+  border: 1px solid rgba(234,230,220,.4);
+  background: radial-gradient(circle, rgba(234,230,220,.05) 0%, transparent 70%);
+  color: var(--bone); cursor: pointer; margin-top: 36px;
+  display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px;
+  animation: ctaBreath 6s ease-in-out infinite;
+  transition: border-color .5s, background .5s;
+}
+.cta:hover {
+  opacity: 1; border-color: rgba(234,230,220,.9);
+  background: radial-gradient(circle, rgba(234,230,220,.12) 0%, transparent 72%);
+}
+@keyframes ctaBreath {
+  0%, 100% { transform: scale(.96); box-shadow: 0 0 18px rgba(224,180,137,.08); }
+  50%      { transform: scale(1.04); box-shadow: 0 0 46px rgba(224,180,137,.22); }
+}
+
+.quiet {
+  font: inherit; font-size: 13px; letter-spacing: .08em; padding: 10px 6px; border: 0; cursor: pointer;
+  background: none; color: var(--faint); text-decoration: underline; text-underline-offset: 4px;
+  text-decoration-color: rgba(234,230,220,.25); margin-top: 14px;
+}
+button:hover { opacity: .85; }
+
+/* breathe screen */
+#breathe { position: relative; overflow: hidden; justify-content: center; }
+#bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg,#16233c 0%,#33415f 36%,#8f5d6e 62%,#c98a63 82%,#e0b489 100%);
+  background-size: cover; background-position: center;
+  transform: scale(1.02);
+}
+#bgShade { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(16,19,23,.15) 0%, rgba(16,19,23,.72) 100%); }
+#breatheContent { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px; min-height: 100vh; min-height: 100dvh; justify-content: center; width: 100%; }
+
+#cycles { display: flex; gap: 10px; justify-content: center; }
+#cycles span { width: 22px; height: 1px; background: rgba(234,230,220,.25); transition: background .4s; }
+#cycles span.done { background: var(--bone); }
+
+#ringWrap { height: 320px; display: flex; align-items: center; justify-content: center; }
+#ring {
+  width: 250px; height: 250px; border-radius: 50%;
+  border: 1px solid rgba(234,230,220,.9);
+  box-shadow: 0 0 70px var(--accent-glow), inset 0 0 44px rgba(234,230,220,.1);
+  transform: scale(.7);
+}
+#phaseWord { font-size: 32px; margin: 0; min-height: 44px; letter-spacing: .04em; }
+
+.icon-btn {
+  width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--hairline); border-radius: 50%; background: rgba(16,19,23,.35);
+  color: var(--bone); cursor: pointer; backdrop-filter: blur(6px);
+}
+#muteBtn { position: absolute; top: 22px; inset-inline-end: 22px; z-index: 5; }
+#muteBtn.muted { color: var(--faint); }
+
+#finish { display: none; max-width: 320px; animation: rise .7s ease both; }
+#finish.show { display: block; }
+#session.hide { display: none; }
+#closingLine { font-style: italic; font-size: 17px; color: rgba(234,230,220,.72); line-height: 1.6; margin: 14px 0 0; }
+#streakLine { margin-top: 20px; }
+.share-row { display: flex; gap: 14px; justify-content: center; margin-top: 14px; }
+
+/* recipient invite */
+.invite-main { min-height: 100vh; min-height: 100dvh; justify-content: center; text-align: center; padding-top: 0; }
+.invite-circle {
+  width: 132px; height: 132px; border-radius: 50%; border: 1px solid var(--hairline);
+  box-shadow: 0 0 80px rgba(224,180,137,.18);
+  background-size: cover; background-position: center;
+}
+.invite-msg { font-style: italic; font-size: 18px; color: rgba(234,230,220,.72); line-height: 1.6; max-width: 300px; margin: 14px auto 0; }
+
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+</style>
+</head>
+<body>
+
+<!-- ============ CREATE ============ -->
+<section id="create" class="screen active">
+  <header>
+    <a class="brand" href="/">Mee</a>
+    <nav class="langs" id="langNav"></nav>
+  </header>
+  <main>
+    <h1 class="serif" data-t="title"></h1>
+    <button id="photoBtn">
+      <span class="hint">
+        <span class="plus">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </span>
+        <span class="caps" data-t="upload"></span>
+      </span>
+    </button>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+    <p id="ambienceLine" class="caps"></p>
+    <input id="msg" data-ph="msgPh">
+    <button class="cta" id="beginBtn" data-t="breathe"></button>
+  </main>
+</section>
+
+<!-- ============ BREATHE ============ -->
+<section id="breathe" class="screen">
+  <div id="bg"></div>
+  <div id="bgShade"></div>
+  <button id="muteBtn" class="icon-btn" aria-pressed="false" aria-label="Mute">
+    <svg id="soundOnIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 6a9 9 0 0 1 0 12"/></svg>
+    <svg id="soundOffIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5 6.5 9H3v6h3.5L11 19V5z"/><path d="M16 9l5 6M21 9l-5 6"/></svg>
+  </button>
+
+  <div id="breatheContent">
+    <div id="session">
+      <div id="cycles"></div>
+      <div id="ringWrap"><div id="ring"></div></div>
+      <p id="phaseWord" class="serif" aria-live="polite"></p>
+      <button class="quiet" id="stopBtn" data-t="stop"></button>
+    </div>
+
+    <div id="finish">
+      <p class="caps">Mee</p>
+      <h2 class="serif" id="doneTitle" style="font-size:28px;margin:10px 0 0"></h2>
+      <p id="closingLine" class="serif"></p>
+      <p id="streakLine" class="caps"></p>
+      <p class="caps" id="shareLabel" style="margin:26px 0 0"></p>
+      <div class="share-row">
+        <button class="icon-btn" data-share="whatsapp" aria-label="WhatsApp" title="WhatsApp">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a8 8 0 0 1-11.6 7.1L4 20l1.5-4.3A8 8 0 1 1 20 11.5z"/><path d="M9.3 9.2c.2-.6.5-.6.8-.6h.4c.2 0 .4 0 .5.4l.6 1.4c.1.2 0 .4-.1.5l-.4.5c-.1.2-.1.3 0 .5.3.5 1 1.3 1.9 1.7.2.1.4.1.5-.1l.5-.6c.1-.2.3-.2.5-.1l1.4.7c.2.1.4.2.4.4 0 .8-.6 1.5-1.3 1.6-1.2.2-3.2-.5-4.6-2-1.2-1.2-1.7-2.6-1.6-3.5 0-.3.2-.6.5-.8z"/></svg>
+        </button>
+        <button class="icon-btn" data-share="telegram" aria-label="Telegram" title="Telegram">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3.5 10.8c-.7.3-.7 1.2.1 1.4l4.4 1.4 1.6 4.9c.2.7 1.1.8 1.5.2l2.3-3 4.4 3.2c.5.4 1.3.1 1.4-.6L22 4.8c.1-.6-.5-1.1-1-.8z"/><path d="M8 13.6 19 6.5"/></svg>
+        </button>
+        <button class="icon-btn" data-share="facebook" aria-label="Facebook" title="Facebook">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8h2.5V5H14a4 4 0 0 0-4 4v2H7.5v3H10v7h3v-7h2.5l.5-3H13V9a1 1 0 0 1 1-1z"/></svg>
+        </button>
+        <button class="icon-btn" id="copyBtn" aria-label="Copy link" title="Copy link">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.2 1.1"/><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.2-1.1"/></svg>
+        </button>
+      </div>
+      <button class="quiet" id="finishBack" data-t="back" style="margin-top:22px"></button>
+    </div>
+  </div>
+</section>
+
+<script>
+/* Mee — shared translations */
+window.MeeI18N = (function () {
+  const LANGS = { en:{name:"EN",dir:"ltr"}, he:{name:"עב",dir:"rtl"}, hi:{name:"हिं",dir:"ltr"}, zh:{name:"中",dir:"ltr"}, ru:{name:"РУ",dir:"ltr"} };
+  const T = {
+    en:{ title:"Breathe the moment", upload:"Add a photo", msgPh:"A few words for them (optional)",
+      breathe:"Begin", phases:{in:"Inhale",hold:"Hold",out:"Exhale"},
+      stop:"End", doneS:"Ready to share", doneR:"You breathed together", share:"Send it to someone",
+      copied:"Link copied", preparing:"Preparing your link…", back:"Back",
+      invite:"invites you to breathe together", someone:"Someone", start:"Begin",
+      ambience:"Ambience", amb:{ocean:"Ocean",forest:"Forest",night:"Night",warm:"Golden hour"}, matched:"matched to your photo",
+      day:"day", streak:"in a row", createOwn:"Create your own moment",
+      closings:["One breath can change an hour.","Someone you love could use this minute.","The moment is still here. So are you.","Quiet is something you can give away."] },
+    he:{ title:"לנשום את הרגע", upload:"הוספת תמונה", msgPh:"כמה מילים בשבילם (לא חובה)",
+      breathe:"להתחיל", phases:{in:"שאיפה",hold:"החזקה",out:"נשיפה"},
+      stop:"סיום", doneS:"מוכן לשיתוף", doneR:"נשמתם יחד", share:"שלחו את זה למישהו",
+      copied:"הקישור הועתק", preparing:"מכינים את הקישור…", back:"חזרה",
+      invite:"מזמין אותך לנשום יחד", someone:"מישהו", start:"להתחיל",
+      ambience:"אווירה", amb:{ocean:"ים",forest:"יער",night:"לילה",warm:"שעת זהב"}, matched:"הותאמה לתמונה שלך",
+      day:"יום", streak:"ברצף", createOwn:"ליצור רגע משלך",
+      closings:["נשימה אחת יכולה לשנות שעה שלמה.","למישהו שאתם אוהבים מגיעה הדקה הזאת.","הרגע עדיין כאן. וגם אתם.","שקט הוא משהו שאפשר לתת במתנה."] },
+    hi:{ title:"इस पल की साँस लें", upload:"तस्वीर जोड़ें", msgPh:"उनके लिए कुछ शब्द (वैकल्पिक)",
+      breathe:"शुरू करें", phases:{in:"साँस लें",hold:"रोकें",out:"छोड़ें"},
+      stop:"समाप्त", doneS:"साझा करने के लिए तैयार", doneR:"आपने साथ साँस ली", share:"किसी को भेजें",
+      copied:"लिंक कॉपी हुआ", preparing:"लिंक तैयार हो रहा है…", back:"वापस",
+      invite:"आपको साथ साँस लेने के लिए आमंत्रित करते हैं", someone:"कोई", start:"शुरू करें",
+      ambience:"परिवेश", amb:{ocean:"समुद्र",forest:"वन",night:"रात",warm:"स्वर्णिम बेला"}, matched:"आपकी तस्वीर से मेल खाती है",
+      day:"दिन", streak:"लगातार", createOwn:"अपना पल बनाएँ",
+      closings:["एक साँस पूरा घंटा बदल सकती है।","किसी अपने को इस पल की ज़रूरत हो सकती है।","पल अभी भी यहीं है। आप भी।","शांति एक उपहार है जो बाँटा जा सकता है।"] },
+    zh:{ title:"呼吸这个时刻", upload:"添加照片", msgPh:"给对方的一句话（可选）",
+      breathe:"开始", phases:{in:"吸气",hold:"屏息",out:"呼气"},
+      stop:"结束", doneS:"可以分享了", doneR:"你们一起呼吸了", share:"发给一个人",
+      copied:"链接已复制", preparing:"正在生成链接…", back:"返回",
+      invite:"邀请你一起呼吸", someone:"有人", start:"开始",
+      ambience:"氛围", amb:{ocean:"海洋",forest:"森林",night:"夜晚",warm:"暮光"}, matched:"已根据照片匹配",
+      day:"天", streak:"连续", createOwn:"创造你自己的时刻",
+      closings:["一次呼吸，可以改变一个小时。","你在乎的人也许正需要这一分钟。","此刻还在这里，你也在。","宁静，是可以送出去的礼物。"] },
+    ru:{ title:"Дышите этим моментом", upload:"Добавить фото", msgPh:"Пару слов для них (необязательно)",
+      breathe:"Начать", phases:{in:"Вдох",hold:"Задержка",out:"Выдох"},
+      stop:"Завершить", doneS:"Готово к отправке", doneR:"Вы дышали вместе", share:"Отправьте кому-то",
+      copied:"Ссылка скопирована", preparing:"Готовим ссылку…", back:"Назад",
+      invite:"приглашает вас подышать вместе", someone:"Кто-то", start:"Начать",
+      ambience:"Атмосфера", amb:{ocean:"Океан",forest:"Лес",night:"Ночь",warm:"Золотой час"}, matched:"подобрана по фото",
+      day:"день", streak:"подряд", createOwn:"Создайте свой момент",
+      closings:["Один вдох может изменить целый час.","Кому-то из близких нужна эта минута.","Момент всё ещё здесь. И вы тоже.","Тишину можно подарить."] },
+  };
+
+  function applyTexts(lang) {
+    const dict = T[lang];
+    document.documentElement.lang = lang;
+    document.documentElement.dir = LANGS[lang].dir;
+    document.querySelectorAll("[data-t]").forEach((el) => {
+      let v = dict;
+      el.dataset.t.split(".").forEach((p) => (v = v[p]));
+      el.textContent = v;
+    });
+    document.querySelectorAll("[data-ph]").forEach((el) => {
+      el.placeholder = dict[el.dataset.ph];
+      el.setAttribute("aria-label", dict[el.dataset.ph]);
+    });
+  }
+
+  function buildLangNav(container, current, onChange) {
+    container.innerHTML = Object.entries(LANGS)
+      .map(([c, l]) => `<button class="${c === current ? "on" : ""}" data-lang="${c}">${l.name}</button>`)
+      .join("");
+    container.onclick = (e) => {
+      const b = e.target.closest("[data-lang]");
+      if (b) onChange(b.dataset.lang);
+    };
+  }
+
+  return { LANGS, T, applyTexts, buildLangNav };
+})();
+
+</script>
+<script>
+/* Mee — shared breathing engine: timing, sound, wake lock, photo analysis */
+window.Mee = (function () {
+  const PHASES = [
+    { key: "in", dur: 4000, big: true },
+    { key: "hold", dur: 2000, big: true },
+    { key: "out", dur: 6000, big: false },
+  ];
+  const TOTAL_CYCLES = 3;
+
+  /* ---- keep the screen on during practice ---- */
+  let wakeLock = null;
+  const playingRef = { v: false };
+  async function acquireWakeLock() {
+    try {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => { wakeLock = null; });
+    } catch (e) { /* unsupported */ }
+  }
+  function releaseWakeLock() {
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && playingRef.v && !wakeLock) acquireWakeLock();
+  });
+
+  /* ---- photo -> ambience (client heuristic; swap for a vision-model call later) ---- */
+  function analyzePhoto(dataUrl) {
+    return new Promise((res) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement("canvas"); c.width = c.height = 32;
+          const g = c.getContext("2d"); g.drawImage(img, 0, 0, 32, 32);
+          const px = g.getImageData(0, 0, 32, 32).data;
+          let r = 0, gr = 0, b = 0;
+          for (let i = 0; i < px.length; i += 4) { r += px[i]; gr += px[i + 1]; b += px[i + 2]; }
+          const n = px.length / 4; r /= n; gr /= n; b /= n;
+          const lum = (0.299 * r + 0.587 * gr + 0.114 * b) / 255;
+          if (lum < 0.22) res("night");
+          else if (b > r && b > gr) res("ocean");
+          else if (gr > r && gr > b) res("forest");
+          else res("warm");
+        } catch (e) { res("warm"); }
+      };
+      img.onerror = () => res("warm");
+      img.src = dataUrl;
+    });
+  }
+
+  /* ---- sound: cyclic breath + photo-matched ambience bed ---- */
+  function createSound(ambience) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    const ctx = new Ctx();
+    const master = ctx.createGain(); master.gain.value = 1; master.connect(ctx.destination);
+
+    const len = ctx.sampleRate * 4;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    let lastN = 0;
+    for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; lastN = (lastN + 0.02 * w) / 1.02; d[i] = lastN * 3.5; }
+
+    const breathSrc = ctx.createBufferSource(); breathSrc.buffer = buf; breathSrc.loop = true;
+    const bf = ctx.createBiquadFilter(); bf.type = "bandpass"; bf.frequency.value = 560; bf.Q.value = 0.7;
+    const bgGain = ctx.createGain(); bgGain.gain.value = 0.015;
+    breathSrc.connect(bf).connect(bgGain).connect(master); breathSrc.start();
+
+    const ambSrc = ctx.createBufferSource(); ambSrc.buffer = buf; ambSrc.loop = true;
+    const af = ctx.createBiquadFilter(); const ag = ctx.createGain();
+    ambSrc.connect(af).connect(ag).connect(master); ambSrc.start();
+
+    let chirpTimer = null;
+    const chirp = () => {
+      const t0 = ctx.currentTime;
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      const f = 2600 + Math.random() * 1000;
+      o.frequency.setValueAtTime(f, t0);
+      o.frequency.exponentialRampToValueAtTime(f * 1.18, t0 + 0.07);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.02, t0 + 0.02);
+      g.gain.linearRampToValueAtTime(0, t0 + 0.13);
+      o.connect(g).connect(master); o.start(t0); o.stop(t0 + 0.15);
+      chirpTimer = setTimeout(chirp, 2500 + Math.random() * 5000);
+    };
+
+    const drone = ctx.createOscillator(); const dg = ctx.createGain(); dg.gain.value = 0;
+    drone.frequency.value = 98; drone.connect(dg).connect(master); drone.start();
+
+    if (ambience === "ocean") { af.type = "lowpass"; af.frequency.value = 380; ag.gain.value = .06; }
+    else if (ambience === "forest") { af.type = "lowpass"; af.frequency.value = 750; ag.gain.value = .03; chirp(); }
+    else if (ambience === "night") { af.type = "lowpass"; af.frequency.value = 260; ag.gain.value = .035; dg.gain.value = .02; }
+    else { af.type = "lowpass"; af.frequency.value = 500; ag.gain.value = .04; dg.gain.value = .012; drone.frequency.value = 130.8; }
+
+    const lfo = ctx.createOscillator(); const lg = ctx.createGain();
+    lfo.frequency.value = .07; lg.gain.value = ag.gain.value * .4;
+    lfo.connect(lg).connect(ag.gain); lfo.start();
+
+    return {
+      breathe(bigger, durMs) {
+        const now = ctx.currentTime;
+        bgGain.gain.cancelScheduledValues(now);
+        bgGain.gain.linearRampToValueAtTime(bigger ? 0.2 : 0.012, now + durMs / 1000);
+      },
+      setMuted(m) {
+        const now = ctx.currentTime;
+        master.gain.cancelScheduledValues(now);
+        master.gain.linearRampToValueAtTime(m ? 0 : 1, now + 0.3);
+      },
+      stop() { clearTimeout(chirpTimer); try { ctx.close(); } catch (e) {} },
+    };
+  }
+
+  /* ---- session runner ---- */
+  function startBreathing({ ambience, muted, onPhase, onCycle, onDone }) {
+    let idx = 0, cycle = 0, timer = null, ended = false;
+    playingRef.v = true;
+    acquireWakeLock();
+    const sound = createSound(ambience);
+    sound && sound.setMuted(!!muted);
+
+    function end() {
+      if (ended) return;
+      ended = true; playingRef.v = false;
+      clearTimeout(timer); releaseWakeLock();
+      sound && sound.stop();
+    }
+    function run() {
+      const p = PHASES[idx];
+      onPhase(p);
+      sound && sound.breathe(p.big, p.dur);
+      timer = setTimeout(() => {
+        if (idx === PHASES.length - 1) {
+          if (cycle + 1 >= TOTAL_CYCLES) { end(); onDone(); return; }
+          cycle++; idx = 0; onCycle(cycle);
+        } else idx++;
+        run();
+      }, p.dur);
+    }
+    onCycle(0);
+    run();
+    return { stop: end, setMuted: (m) => sound && sound.setMuted(m) };
+  }
+
+  /* ---- analytics (fire-and-forget) ---- */
+  function trackEvent(event, momentId) {
+    try {
+      fetch("/api/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event, momentId }),
+        keepalive: true,
+      });
+    } catch (e) {}
+  }
+
+  /* ---- streak (persists on this device) ---- */
+  function bumpStreak() {
+    try {
+      const KEY = "mee_state";
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      const s = JSON.parse(localStorage.getItem(KEY) || "{}");
+      if (s.last !== today) s.days = s.last === yesterday ? (s.days || 0) + 1 : 1;
+      s.last = today;
+      s.sessions = (s.sessions || 0) + 1;
+      localStorage.setItem(KEY, JSON.stringify(s));
+      return s;
+    } catch (e) { return { days: 1, sessions: 1 }; }
+  }
+
+  return { PHASES, TOTAL_CYCLES, startBreathing, analyzePhoto, trackEvent, bumpStreak };
+})();
+
+</script>
+<script>
+const $ = (id) => document.getElementById(id);
+const { T, applyTexts, buildLangNav } = MeeI18N;
+
+const state = {
+  lang: (navigator.language || "en").slice(0,2),
+  photoDataUrl: null, photoBlob: null,
+  ambience: "warm", muted: false,
+  controller: null,
+  shareUrl: null, // set once the moment is uploaded
+};
+if (!T[state.lang]) state.lang = "en";
+const t = () => T[state.lang];
+
+function renderLang() {
+  applyTexts(state.lang);
+  buildLangNav($("langNav"), state.lang, (l) => { state.lang = l; renderLang(); });
+  updateAmbienceLine();
+}
+
+function show(id) {
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+
+/* ---------- photo ---------- */
+function updateAmbienceLine() {
+  const el = $("ambienceLine");
+  if (!state.photoDataUrl) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  el.innerHTML = `${t().ambience} · ${t().amb[state.ambience]} <span style="color:rgba(234,230,220,.3)">— ${t().matched}</span>`;
+}
+
+/* downscale before upload: faster sends, smaller storage */
+async function downscale(file, max = 1600, quality = 0.85) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const s = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    return await new Promise((r) => c.toBlob(r, "image/jpeg", quality));
+  } catch (e) { return file; }
+}
+
+$("photoBtn").addEventListener("click", () => $("fileInput").click());
+$("fileInput").addEventListener("change", async (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  state.photoBlob = await downscale(f);
+  state.shareUrl = null; // new photo -> new link
+  const r = new FileReader();
+  r.onload = async () => {
+    state.photoDataUrl = r.result;
+    ["photoBtn", "bg"].forEach((id) => {
+      const el = $(id);
+      el.style.backgroundImage = `url(${state.photoDataUrl})`;
+      el.style.backgroundSize = "cover";
+      el.style.backgroundPosition = "center";
+    });
+    $("photoBtn").classList.add("has-photo");
+    state.ambience = await Mee.analyzePhoto(state.photoDataUrl);
+    updateAmbienceLine();
+  };
+  r.readAsDataURL(state.photoBlob);
+});
+$("msg").addEventListener("input", () => { state.shareUrl = null; }); // edited message -> new link
+
+/* ---------- breathing ---------- */
+function renderCycles(current) {
+  $("cycles").innerHTML = Array.from({ length: Mee.TOTAL_CYCLES }, (_, i) =>
+    `<span class="${i <= current ? "done" : ""}"></span>`).join("");
+}
+function startSession() {
+  $("finish").classList.remove("show");
+  $("session").classList.remove("hide");
+  show("breathe");
+  state.controller = Mee.startBreathing({
+    ambience: state.ambience,
+    muted: state.muted,
+    onCycle: renderCycles,
+    onPhase: (p) => {
+      const sec = p.dur / 1000;
+      $("phaseWord").textContent = t().phases[p.key];
+      $("ring").style.transition = `transform ${sec}s cubic-bezier(.4,0,.3,1)`;
+      $("ring").style.transform = `scale(${p.big ? 1 : .55})`;
+      $("bg").style.transition = `transform ${sec}s cubic-bezier(.4,0,.3,1)`;
+      $("bg").style.transform = `scale(${p.big ? 1.07 : 1})`;
+    },
+    onDone: finishSession,
+  });
+}
+function finishSession() {
+  Mee.trackEvent("session_completed");
+  const s = Mee.bumpStreak();
+  $("session").classList.add("hide");
+  $("doneTitle").textContent = t().doneS;
+  const lines = t().closings;
+  $("closingLine").textContent = lines[Math.floor(Math.random() * lines.length)];
+  $("streakLine").textContent = `${t().day} ${s.days} ${t().streak} · ${s.sessions}`;
+  $("shareLabel").textContent = t().share;
+  $("finish").classList.add("show");
+}
+$("beginBtn").addEventListener("click", startSession);
+$("stopBtn").addEventListener("click", () => { state.controller && state.controller.stop(); show("create"); });
+$("finishBack").addEventListener("click", () => show("create"));
+
+$("muteBtn").addEventListener("click", () => {
+  state.muted = !state.muted;
+  state.controller && state.controller.setMuted(state.muted);
+  $("muteBtn").classList.toggle("muted", state.muted);
+  $("muteBtn").setAttribute("aria-pressed", String(state.muted));
+  $("soundOnIcon").style.display = state.muted ? "none" : "block";
+  $("soundOffIcon").style.display = state.muted ? "block" : "none";
+});
+
+/* ---------- real sharing: upload once, then open the network ---------- */
+async function ensureMoment() {
+  if (state.shareUrl) return state.shareUrl;
+  if (!state.photoBlob) {
+    // no photo chosen -> share the homepage
+    state.shareUrl = location.origin;
+    return state.shareUrl;
+  }
+  $("shareLabel").textContent = t().preparing;
+  const fd = new FormData();
+  fd.append("photo", state.photoBlob, "moment.jpg");
+  fd.append("message", $("msg").value.trim());
+  fd.append("ambience", state.ambience);
+  fd.append("lang", state.lang);
+  const res = await fetch("/api/moments", { method: "POST", body: fd });
+  if (!res.ok) throw new Error("upload failed");
+  const data = await res.json();
+  state.shareUrl = data.url;
+  $("shareLabel").textContent = t().share;
+  return state.shareUrl;
+}
+function shareText() {
+  const m = $("msg").value.trim();
+  return m ? `"${m}" — ${t().invite}` : `${t().someone} ${t().invite}`;
+}
+document.querySelectorAll("[data-share]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    try {
+      const url = await ensureMoment();
+      const u = encodeURIComponent(url), txt = encodeURIComponent(shareText());
+      const links = {
+        whatsapp: `https://wa.me/?text=${txt}%0A${u}`,
+        telegram: `https://t.me/share/url?url=${u}&text=${txt}`,
+        facebook: `https://www.facebook.com/sharer/sharer.php?u=${u}`,
+      };
+      window.open(links[btn.dataset.share], "_blank", "noopener");
+    } catch (e) { $("shareLabel").textContent = "×"; }
+  });
+});
+$("copyBtn").addEventListener("click", async () => {
+  try {
+    const url = await ensureMoment();
+    if (navigator.share) { await navigator.share({ title: "Mee", text: shareText(), url }); return; }
+    await navigator.clipboard.writeText(`${shareText()}\n${url}`);
+    $("shareLabel").textContent = t().copied;
+    setTimeout(() => ($("shareLabel").textContent = t().share), 2000);
+  } catch (e) {}
+});
+
+Mee.trackEvent("page_view");
+renderLang();
+</script>
+</body>
+</html>
