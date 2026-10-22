@@ -1,0 +1,24 @@
+{
+  "crypto": {
+    "exchanges": ["binance", "okx", "bybit", "kucoin", "gate"],
+    "coins": ["BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA", "AVAX", "LINK", "TON", "DOT", "LTC", "TRX", "SUI", "APT", "NEAR", "ARB", "OP", "PEPE", "SHIB"],
+    "taker_fee_pct": {"binance": 0.1, "okx": 0.1, "bybit": 0.1, "kucoin": 0.1, "gate": 0.2},
+    "min_net_spread_pct": 0.3,
+    "suspicious_spread_pct": 5.0,
+    "triangular_start": "USDT",
+    "triangular_fee_pct": 0.1,
+    "triangular_min_net_pct": 0.05,
+    "funding_exchanges": ["binance", "bybit"],
+    "funding_min_apr_pct": 20,
+    "funding_round_trip_fee_pct": 0.4
+  },
+  "stocks": {
+    "watchlist": ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AMD", "AVGO", "NFLX", "JPM", "V", "COST", "LLY", "UNH", "XOM", "SPY", "QQQ", "TEVA", "NICE", "CHKP", "WIX", "MNDY", "CYBR", "ESLT"],
+    "rsi_oversold": 30,
+    "breakout_volume_ratio": 2.0,
+    "near_52w_low_pct": 5
+  },
+  "report": {
+    "top_n_per_type": 8
+  }
+}

@@ -1,0 +1,11 @@
+[
+  {
+    "target": "EXAMPLE",
+    "acquirer": "ACQUIRER",
+    "acquirer_symbol": null,
+    "cash": 50.0,
+    "stock_ratio": 0,
+    "expected_close": "2027-06-30",
+    "note": "Example entry - replace with real announced deals (cash offer per share, and/or acquirer shares per target share)"
+  }
+]
