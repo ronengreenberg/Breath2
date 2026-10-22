@@ -1,0 +1,544 @@
+<title>רדאר הזדמנויות</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky status bar, summary strip, then ranked sections per strategy with a side rail for sources and legend. */
+:root {
+  --bg: #EDF1F3;
+  --surface: #FFFFFF;
+  --surface-2: #F5F8F9;
+  --ink: #12202A;
+  --muted: #5A6B76;
+  --line: #D5DEE3;
+  --accent: #0B6E78;
+  --accent-soft: #D7ECEE;
+  --good: #17784C;
+  --good-soft: #DDF1E6;
+  --warn: #9A6212;
+  --warn-soft: #F7EBD3;
+  --crit: #B23A26;
+  --crit-soft: #F8E1DC;
+  --shadow: 0 1px 2px rgba(18, 32, 42, .06), 0 4px 16px rgba(18, 32, 42, .05);
+  --font-body: "IBM Plex Sans Hebrew", "Segoe UI", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1318; --surface: #131C22; --surface-2: #18232A; --ink: #E2EAEE; --muted: #8A9BA6;
+    --line: #24323B; --accent: #43B5BF; --accent-soft: #143238; --good: #4CC48A; --good-soft: #12301F;
+    --warn: #E0A548; --warn-soft: #33270F; --crit: #EE7A63; --crit-soft: #3A1A14;
+    --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1318; --surface: #131C22; --surface-2: #18232A; --ink: #E2EAEE; --muted: #8A9BA6;
+  --line: #24323B; --accent: #43B5BF; --accent-soft: #143238; --good: #4CC48A; --good-soft: #12301F;
+  --warn: #E0A548; --warn-soft: #33270F; --crit: #EE7A63; --crit-soft: #3A1A14;
+  --shadow: 0 1px 2px rgba(0,0,0,.4); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.wrap { max-width: 1240px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* ---------- top bar ---------- */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.bar .wrap { display: flex; align-items: center; gap: 16px; padding-block: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; margin-inline-end: auto; }
+.brand h1 { font-size: 19px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.radar { width: 30px; height: 30px; flex: none; }
+.radar .sweep { transform-origin: 15px 15px; animation: sweep 4s linear infinite; }
+.scanning .radar .sweep { animation-duration: .9s; }
+@keyframes sweep { to { transform: rotate(360deg); } }
+.fresh { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+.dot.stale { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+.dot.old { background: var(--crit); box-shadow: 0 0 0 3px var(--crit-soft); }
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid transparent; background: var(--accent); color: var(--surface); padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; transition: filter .15s; }
+.btn:hover { filter: brightness(1.08); }
+.btn[disabled] { opacity: .65; cursor: progress; }
+.btn .spin { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: sweep .8s linear infinite; }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line); font-weight: 500; }
+.btn-ghost:hover { background: var(--surface-2); filter: none; }
+
+.demo { background: var(--warn-soft); color: var(--ink); border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.demo .wrap { padding-block: 9px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.demo b { color: var(--warn); }
+.demo code { font-family: var(--font-mono); background: var(--surface); padding: 1px 6px; border-radius: 4px; direction: ltr; unicode-bidi: isolate; }
+
+/* ---------- summary ---------- */
+main.wrap { padding-block: 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.col { display: grid; gap: 20px; min-width: 0; }
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+.stat { padding: 14px 18px; display: grid; gap: 2px; min-width: 0; }
+.stat + .stat { border-inline-start: 1px solid var(--line); }
+.stat .k { font-size: 12.5px; color: var(--muted); }
+.stat .v { font-size: 24px; font-weight: 600; line-height: 1.2; }
+.stat .s { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v.good { color: var(--good); } .v.crit { color: var(--crit); }
+
+/* ---------- toolbar ---------- */
+.tools { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 auto; }
+.chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13.5px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.chip .c { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.chip[aria-pressed="true"] .c { color: inherit; opacity: .7; }
+.search { position: relative; flex: 0 1 220px; min-width: 160px; }
+.search input { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 7px 34px 7px 10px; font-size: 14px; }
+.search svg { position: absolute; inset-inline-start: 10px; top: 50%; translate: 0 -50%; color: var(--muted); }
+.toggle { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); cursor: pointer; user-select: none; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* ---------- sections and rows ---------- */
+.section { display: grid; gap: 8px; }
+.section-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-inline: 2px; }
+.section-head h2 { font-size: 16px; margin: 0; font-weight: 600; }
+.section-head .unit { font-size: 12.5px; color: var(--muted); }
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+.opp + .opp { border-top: 1px solid var(--line); }
+.opp > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 92px minmax(0, 1fr) 150px 20px; gap: 16px; align-items: center; padding: 14px 18px; position: relative; }
+.opp > summary::-webkit-details-marker { display: none; }
+.opp > summary:hover { background: var(--surface-2); }
+.opp.sus > summary::before { content: ""; position: absolute; inset-block: 0; inset-inline-start: 0; width: 3px; background: var(--crit); }
+.asset { font-family: var(--font-mono); font-weight: 600; font-size: 16px; direction: ltr; text-align: right; overflow-wrap: anywhere; }
+.what { min-width: 0; display: grid; gap: 4px; }
+.what .t { font-weight: 500; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); }
+.facts .num { color: var(--ink); }
+.flag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; background: var(--crit-soft); color: var(--crit); width: fit-content; }
+.edge { display: grid; gap: 5px; justify-items: end; }
+.edge .val { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 600; direction: ltr; line-height: 1; }
+.edge .val.pos { color: var(--good); }
+.edge .val.sus { color: var(--crit); }
+.edge .lab { font-size: 11.5px; color: var(--muted); }
+.meter { width: 100%; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; display: flex; justify-content: flex-start; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.sus .meter i { background: var(--crit); }
+.chev { color: var(--muted); transition: rotate .2s; }
+.opp[open] .chev { rotate: 180deg; }
+
+.body { padding: 4px 18px 20px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; background: var(--surface-2); border-top: 1px dashed var(--line); padding-top: 18px; }
+.body h3 { font-size: 12.5px; font-weight: 600; color: var(--muted); margin: 0 0 8px; letter-spacing: .02em; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: left; overflow-wrap: anywhere; }
+.kv dd.txt { text-align: right; }
+.legs { display: flex; flex-wrap: wrap; gap: 6px; direction: ltr; justify-content: flex-end; }
+.legs span { font-family: var(--font-mono); font-size: 12.5px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+.risks, .check { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 14px; }
+.risks li { display: grid; grid-template-columns: 16px 1fr; gap: 8px; }
+.risks li::before { content: ""; width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--warn); }
+.risks li.crit::before { background: var(--crit); }
+.check label { display: grid; grid-template-columns: 18px 1fr; gap: 8px; cursor: pointer; }
+.check input { accent-color: var(--good); margin-top: 4px; }
+.check input:checked + span { color: var(--muted); text-decoration: line-through; }
+.stack { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.spark { width: 100%; height: 56px; display: block; }
+.copy { justify-self: start; }
+
+.empty { padding: 32px 18px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); }
+.empty b { color: var(--ink); display: block; margin-bottom: 4px; font-size: 15px; }
+
+/* ---------- side rail ---------- */
+aside { display: grid; gap: 16px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 76px); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 10px; }
+.panel h2 { font-size: 14px; margin: 0; font-weight: 600; }
+.src { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 13.5px; }
+.src li { display: flex; align-items: center; gap: 8px; }
+.src .name { font-family: var(--font-mono); font-size: 12.5px; }
+.src .st { margin-inline-start: auto; font-size: 12px; color: var(--muted); }
+.legend { display: grid; gap: 8px; font-size: 13.5px; margin: 0; }
+.legend dt { font-weight: 600; }
+.legend dd { margin: 0 0 4px; color: var(--muted); }
+.note { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+
+.toast { position: fixed; inset-inline: 0; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); margin-inline: auto; width: fit-content; max-width: calc(100% - 32px); background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 8px; font-size: 14px; box-shadow: var(--shadow); z-index: 20; }
+
+@media (max-width: 980px) {
+  main.wrap { grid-template-columns: minmax(0, 1fr); }
+  aside { position: static; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+}
+@media (max-width: 640px) {
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat:nth-child(3) { border-inline-start: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .opp > summary { grid-template-columns: minmax(0, 1fr) auto 16px; grid-template-areas: "asset edge chev" "what what what"; gap: 8px 12px; padding: 14px; }
+  .asset { grid-area: asset; text-align: right; direction: ltr; justify-self: start; }
+  .what { grid-area: what; }
+  .edge { grid-area: edge; min-width: 96px; }
+  .chev { grid-area: chev; }
+  .body { grid-template-columns: minmax(0, 1fr); padding-inline: 14px; }
+  .search { flex: 1 1 100%; }
+  .fresh .long { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .radar .sweep, .btn .spin { animation: none; }
+  .chev { transition: none; }
+}
+</style>
+
+<div dir="rtl" id="app">
+  <header class="bar">
+    <div class="wrap">
+      <div class="brand">
+        <svg class="radar" viewBox="0 0 30 30" aria-hidden="true">
+          <circle cx="15" cy="15" r="13.5" fill="none" stroke="var(--line)" stroke-width="1.5"/>
+          <circle cx="15" cy="15" r="8" fill="none" stroke="var(--line)" stroke-width="1.2"/>
+          <g class="sweep"><path d="M15 15 L15 1.5 A13.5 13.5 0 0 1 26.7 8.2 Z" fill="var(--accent)" opacity=".35"/><line x1="15" y1="15" x2="15" y2="1.5" stroke="var(--accent)" stroke-width="1.6"/></g>
+          <circle cx="21" cy="10" r="1.8" fill="var(--good)"/>
+          <circle cx="9" cy="19.5" r="1.5" fill="var(--warn)"/>
+        </svg>
+        <h1>רדאר הזדמנויות</h1>
+      </div>
+      <span class="fresh" id="fresh"><span class="dot" id="freshDot"></span><span id="freshText">טוען…</span></span>
+      <button class="btn" id="scanBtn" type="button"><span id="scanIcon" hidden class="spin"></span><span id="scanLabel">סרוק עכשיו</span></button>
+    </div>
+  </header>
+  <div class="demo" id="demo" hidden>
+    <div class="wrap"><b>נתוני דוגמה.</b><span>כדי לראות נתונים אמיתיים מהבורסות, הרץ במחשב שלך את</span><code>python agent.py --serve</code><span>ופתח את http://localhost:8765</span></div>
+  </div>
+
+  <main class="wrap">
+    <div class="col">
+      <section class="summary" aria-label="סיכום" id="summary"></section>
+      <div class="tools">
+        <div class="chips" id="chips" role="group" aria-label="סינון לפי אסטרטגיה"></div>
+        <label class="search">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <input id="q" type="search" placeholder="חיפוש סימול, למשל BTC" aria-label="חיפוש סימול">
+        </label>
+        <label class="toggle"><input type="checkbox" id="hideSus"> הסתר חשודות</label>
+      </div>
+      <div id="sections" class="col"></div>
+    </div>
+
+    <aside>
+      <section class="panel">
+        <h2>מצב מקורות</h2>
+        <ul class="src" id="sources"></ul>
+      </section>
+      <section class="panel">
+        <h2>איך לקרוא את המספרים</h2>
+        <dl class="legend">
+          <dt>נטו לעסקה</dt><dd>אחוז רווח על סבב אחד של קנייה ומכירה, אחרי עמלות מסחר ולפני עמלות משיכה.</dd>
+          <dt>שנתי</dt><dd>תשואה שנתית משוערת אם התנאים הנוכחיים יישארו. ב-funding הם משתנים כל כמה שעות.</dd>
+          <dt>ציון</dt><dd>חוזק הסיגנל במניות. משמש רק לדירוג מניות זו מול זו, לא תחזית רווח.</dd>
+        </dl>
+      </section>
+      <p class="note">זה לא ייעוץ השקעות. כל המספרים הם תמונת מצב רגעית ולא כוללים מסים, עמלות העברה וסליפג'. בדוק כל הזדמנות ידנית לפני שאתה פועל.</p>
+    </aside>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script>
+const TYPES = {
+  "cross-exchange-arb":    { name: "ארביטראז' בין בורסות", group: "crypto" },
+  "triangular-arb":        { name: "ארביטראז' משולש", group: "tri" },
+  "funding-carry":         { name: "Funding carry", group: "funding" },
+  "merger-arb":            { name: "ארביטראז' מיזוגים", group: "merger" },
+  "stock-oversold-uptrend":{ name: "מכירת יתר במגמת עלייה", group: "stocks" },
+  "stock-breakout":        { name: "פריצה עם מחזור", group: "stocks" },
+  "stock-52w-low":         { name: "קרוב לשפל שנתי", group: "stocks" },
+};
+const GROUPS = [
+  { id: "all", name: "הכל" },
+  { id: "crypto", name: "בין בורסות" },
+  { id: "tri", name: "משולש" },
+  { id: "funding", name: "Funding" },
+  { id: "merger", name: "מיזוגים" },
+  { id: "stocks", name: "מניות" },
+];
+const UNIT = { trade: "נטו לעסקה", apr: "שנתי", score: "ציון" };
+const SOURCES = ["binance", "okx", "bybit", "kucoin", "gate", "binance-funding", "bybit-funding", "binance-triangle", "yahoo"];
+const LABELS = {
+  buy_exchange: "קנייה ב", sell_exchange: "מכירה ב", buy_ask: "מחיר קנייה (ask)", sell_bid: "מחיר מכירה (bid)",
+  gross_pct: "פער ברוטו %", exchange: "בורסה", funding_per_interval_pct: "funding לתקופה %",
+  interval_hours: "אורך תקופה (שעות)", gross_apr_pct: "שנתי ברוטו %", price: "מחיר", rsi14: "RSI 14",
+  pct_from_52w_high: "מרחק משיא שנתי %", volume_vs_20d: "מחזור מול ממוצע 20 יום", deal_value: "שווי העסקה למניה",
+  target_price: "מחיר המניה", spread_pct: "פער %", days_to_close: "ימים לסגירה", annualized_pct: "שנתי %", note: "הערה",
+};
+const CHECKLIST = {
+  "cross-exchange-arb": ["הפקדות ומשיכות של המטבע פתוחות בשתי הבורסות", "יש מספיק כמות בספר הפקודות במחיר הזה", "עמלת המשיכה והרשת נכנסות ברווח", "יש מלאי מראש בשתי הבורסות, כדי לא לחכות להעברה"],
+  "triangular-arb": ["הפער עדיין קיים ברגע הביצוע", "כל צמד עומד בכמות המינימום להזמנה", "הביצוע אוטומטי, לא ידני"],
+  "funding-carry": ["ה-funding היה גבוה גם בשבוע האחרון ולא רק עכשיו", "המינוף על השורט נמוך ויש מרווח מחיסול", "עמלות כניסה ויציאה בשתי הרגליים נכנסות ברווח"],
+  "merger-arb": ["קראתי את תנאי העסקה ואת לוח הזמנים לאישורים", "בדקתי סיכון רגולטורי וסיכון מימון", "חישבתי את שווי רכיב המניות, אם יש"],
+  stocks: ["אין דוח או אירוע קרוב שמסביר את התנועה", "הגדרתי מראש נקודת יציאה בהפסד", "מגמת השוק הכללית תומכת בכיוון"],
+};
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+let state = null, live = false, group = store.get("radar.group", "all"), pollTimer = null;
+$("hideSus").checked = store.get("radar.hideSus", false);
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtNum = (v) => {
+  if (typeof v !== "number") return esc(v);
+  const a = Math.abs(v);
+  const d = a >= 1000 ? 0 : a >= 100 ? 2 : a >= 1 ? 3 : a >= 0.01 ? 4 : 8;
+  return v.toLocaleString("en-US", { maximumFractionDigits: d });
+};
+const fmtEdge = (o) => (o.unit === "score" ? "" : (o.edge_pct > 0 ? "+" : "")) + o.edge_pct.toFixed(o.unit === "trade" ? 2 : 1) + (o.unit === "score" ? "" : "%");
+// Isolate Latin runs (tickers, exchange names) so they keep their place inside Hebrew sentences.
+const bidi = (s) => esc(s).replace(/[A-Za-z0-9][\w.\/]*(?:[ ][A-Za-z0-9][\w.\/]*)*/g, (m) => `<bdi>${m}</bdi>`);
+const groupOf = (o) => (TYPES[o.type] || {}).group || "other";
+
+/* ---------- example data (demo mode only) ---------- */
+function exampleState() {
+  const walk = (seed, n, start, drift) => { let x = start, s = seed; return Array.from({ length: n }, () => { s = (s * 9301 + 49297) % 233280; x *= 1 + ((s / 233280) - 0.5) * 0.04 + drift; return +x.toFixed(2); }); };
+  const sparkA = walk(7, 60, 180, 0.002).map((v, i, a) => i > 50 ? +(v * (1 - (i - 50) * 0.012)).toFixed(2) : v);
+  const sparkB = walk(3, 60, 42, 0.0005).map((v, i) => i === 59 ? +(v * 1.07).toFixed(2) : v);
+  const ago = new Date(Date.now() - 4 * 60000).toISOString();
+  return {
+    generated_at: ago, scanning: false, interval_min: 10, errors: ["yahoo:ESLT: 404 Client Error"],
+    opportunities: [
+      { type: "cross-exchange-arb", asset: "SUI", title: "קנייה ב-kucoin, מכירה ב-bybit", edge_pct: 0.412, unit: "trade", severity: "normal",
+        details: { buy_exchange: "kucoin", sell_exchange: "bybit", buy_ask: 3.4121, sell_bid: 3.4330, gross_pct: 0.612 },
+        risks: ["עמלת משיכה וזמן העברה לא נכללים בחישוב", "בדוק את עומק ספר הפקודות: ייתכן שברמה העליונה יש כמות קטנה"] },
+      { type: "cross-exchange-arb", asset: "APT", title: "קנייה ב-gate, מכירה ב-okx", edge_pct: 0.318, unit: "trade", severity: "normal",
+        details: { buy_exchange: "gate", sell_exchange: "okx", buy_ask: 8.912, sell_bid: 8.976, gross_pct: 0.718 },
+        risks: ["עמלת משיכה וזמן העברה לא נכללים בחישוב"] },
+      { type: "cross-exchange-arb", asset: "TON", title: "קנייה ב-gate, מכירה ב-binance", edge_pct: 11.9, unit: "trade", severity: "suspicious",
+        details: { buy_exchange: "gate", sell_exchange: "binance", buy_ask: 4.71, sell_bid: 5.29, gross_pct: 12.3 },
+        risks: ["פער חשוד: כנראה הפקדות או משיכות חסומות, או שזה טוקן אחר עם אותו שם", "עמלת משיכה וזמן העברה לא נכללים בחישוב"] },
+      { type: "triangular-arb", asset: "BTC/ETH", title: "USDT → BTC → ETH → USDT", edge_pct: 0.061, unit: "trade", severity: "normal",
+        details: { legs: ["buy BTCUSDT", "buy ETHBTC", "sell ETHUSDT"] },
+        risks: ["המחירים זזים באלפיות שנייה: דורש ביצוע מיידי", "הכמות ברמה העליונה של הספר בדרך כלל קטנה"] },
+      { type: "funding-carry", asset: "PEPE", title: "ספוט לונג + שורט חוזה ב-bybit", edge_pct: 48.2, unit: "apr", severity: "normal",
+        details: { exchange: "bybit", funding_per_interval_pct: 0.0443, interval_hours: 8, gross_apr_pct: 48.6 },
+        risks: ["ה-funding משתנה בכל תקופה: התשואה השנתית היא תמונת מצב", "השורט על החוזה עלול להיחסל בקפיצה חדה אם אין מספיק בטחונות"] },
+      { type: "funding-carry", asset: "DOGE", title: "ספוט לונג + שורט חוזה ב-binance", edge_pct: 23.6, unit: "apr", severity: "normal",
+        details: { exchange: "binance", funding_per_interval_pct: 0.0219, interval_hours: 8, gross_apr_pct: 24.0 },
+        risks: ["ה-funding משתנה בכל תקופה: התשואה השנתית היא תמונת מצב"] },
+      { type: "merger-arb", asset: "TGT1", title: "נרכשת על ידי ACQ Corp", edge_pct: 9.8, unit: "apr", severity: "normal",
+        details: { deal_value: 50, target_price: 48.1, spread_pct: 3.95, days_to_close: 147, annualized_pct: 9.8, note: "עסקת מזומן לדוגמה" },
+        risks: ["אם העסקה מתבטלת המניה עלולה לרדת חזרה למחיר שלפני ההכרזה", "עיכובים רגולטוריים מורידים את התשואה השנתית"] },
+      { type: "stock-oversold-uptrend", asset: "AVGO", title: "מכירת יתר (RSI 27) בתוך מגמת עלייה", edge_pct: 3.0, unit: "score", severity: "normal",
+        details: { price: sparkA[59], rsi14: 27.0, pct_from_52w_high: -14.2, volume_vs_20d: 1.4, spark: sparkA },
+        risks: ["מכירת יתר יכולה להימשך: בדוק חדשות שהסבירו את הירידה"] },
+      { type: "stock-breakout", asset: "WIX", title: "פריצת שיא 20 יום במחזור פי 2.7", edge_pct: 2.7, unit: "score", severity: "normal",
+        details: { price: sparkB[59], rsi14: 68.4, pct_from_52w_high: -3.1, volume_vs_20d: 2.7, spark: sparkB },
+        risks: ["פריצות נכשלות לא מעט: שים סטופ מתחת לטווח"] },
+    ],
+  };
+}
+
+/* ---------- rendering ---------- */
+function visible() {
+  const q = $("q").value.trim().toUpperCase();
+  const hide = $("hideSus").checked;
+  return state.opportunities.filter((o) =>
+    (group === "all" || groupOf(o) === group) &&
+    (!q || o.asset.toUpperCase().includes(q)) &&
+    !(hide && o.severity === "suspicious"));
+}
+
+function renderSummary() {
+  const ops = state.opportunities;
+  const clean = ops.filter((o) => o.severity !== "suspicious");
+  const best = (unit) => clean.filter((o) => o.unit === unit).sort((a, b) => b.edge_pct - a.edge_pct)[0];
+  const bt = best("trade"), ba = best("apr");
+  const sus = ops.length - clean.length;
+  const stat = (k, v, s, cls = "") => `<div class="stat"><span class="k">${k}</span><span class="v ${cls}">${v}</span><span class="s">${s}</span></div>`;
+  $("summary").innerHTML =
+    stat("הזדמנויות", `<span class="num">${ops.length}</span>`, `ב-${new Set(ops.map(groupOf)).size} אסטרטגיות`) +
+    stat("הטובה ביותר לעסקה", bt ? `<span class="num">${fmtEdge(bt)}</span>` : "—", bt ? `${bidi(bt.asset)} · ${bidi(TYPES[bt.type].name)}` : "אין כרגע", bt ? "good" : "") +
+    stat("הטובה ביותר שנתית", ba ? `<span class="num">${fmtEdge(ba)}</span>` : "—", ba ? `${bidi(ba.asset)} · ${bidi(TYPES[ba.type].name)}` : "אין כרגע", ba ? "good" : "") +
+    stat("חשודות", `<span class="num">${sus}</span>`, sus ? "פערים גדולים מכדי להיות אמיתיים" : "לא נמצאו", sus ? "crit" : "");
+}
+
+function renderChips() {
+  const counts = {};
+  state.opportunities.forEach((o) => { counts[groupOf(o)] = (counts[groupOf(o)] || 0) + 1; });
+  $("chips").innerHTML = GROUPS.map((g) => {
+    const c = g.id === "all" ? state.opportunities.length : counts[g.id] || 0;
+    return `<button type="button" class="chip" data-g="${g.id}" aria-pressed="${g.id === group}">${g.name}<span class="c">${c}</span></button>`;
+  }).join("");
+}
+
+function sparkline(values) {
+  const w = 300, h = 56, p = 4;
+  const min = Math.min(...values), max = Math.max(...values), span = max - min || 1;
+  const pts = values.map((v, i) => [p + (i / (values.length - 1)) * (w - 2 * p), p + (1 - (v - min) / span) * (h - 2 * p)]);
+  const line = pts.map((pt, i) => (i ? "L" : "M") + pt[0].toFixed(1) + " " + pt[1].toFixed(1)).join(" ");
+  const last = pts[pts.length - 1];
+  const up = values[values.length - 1] >= values[0];
+  const col = up ? "var(--good)" : "var(--crit)";
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="מחיר ב-60 ימי המסחר האחרונים">
+    <line x1="0" x2="${w}" y1="${h / 2}" y2="${h / 2}" stroke="var(--line)" stroke-dasharray="3 4"/>
+    <path d="${line} L${last[0]} ${h} L${pts[0][0]} ${h} Z" fill="${col}" opacity=".12"/>
+    <path d="${line}" fill="none" stroke="${col}" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+    <circle cx="${last[0]}" cy="${last[1]}" r="3.2" fill="${col}"/></svg>`;
+}
+
+function facts(o) {
+  const d = o.details, f = [];
+  if (o.type === "cross-exchange-arb") f.push(`ask <span class="num">${fmtNum(d.buy_ask)}</span>`, `bid <span class="num">${fmtNum(d.sell_bid)}</span>`, `ברוטו <span class="num">${d.gross_pct}%</span>`);
+  if (o.type === "funding-carry") f.push(`<span class="num">${d.funding_per_interval_pct}%</span> כל <span class="num">${d.interval_hours}</span> שעות`, `ברוטו <span class="num">${d.gross_apr_pct}%</span> בשנה`);
+  if (o.type === "merger-arb") f.push(`מחיר <span class="num">${fmtNum(d.target_price)}</span> מול <span class="num">${fmtNum(d.deal_value)}</span>`, `<span class="num">${d.days_to_close}</span> ימים לסגירה`);
+  if (o.type === "triangular-arb") f.push(`<span class="num">${d.legs.length}</span> רגליים בבינאנס`);
+  if (groupOf(o) === "stocks") f.push(`מחיר <span class="num">${fmtNum(d.price)}</span>`, `RSI <span class="num">${d.rsi14 ?? "—"}</span>`, `משיא שנתי <span class="num">${d.pct_from_52w_high}%</span>`);
+  return f.map((x) => `<span>${x}</span>`).join("");
+}
+
+function detailRows(d) {
+  return Object.entries(d).filter(([k]) => k !== "spark" && k !== "legs" && d[k] !== "" && d[k] !== null).map(([k, v]) =>
+    `<dt>${esc(LABELS[k] || k)}</dt><dd class="${typeof v === "number" ? "num" : "txt"}">${typeof v === "number" ? fmtNum(v) : esc(v)}</dd>`).join("");
+}
+
+function row(o, maxEdge, idx) {
+  const sus = o.severity === "suspicious";
+  const pct = Math.max(4, Math.min(100, (Math.abs(o.edge_pct) / (maxEdge || 1)) * 100));
+  const checks = CHECKLIST[o.type] || CHECKLIST[groupOf(o)] || [];
+  const key = `${o.type}:${o.asset}:${o.title}`;
+  return `<details class="opp${sus ? " sus" : ""}" data-key="${esc(key)}">
+    <summary>
+      <span class="asset">${esc(o.asset)}</span>
+      <span class="what"><span class="t">${bidi(o.title)}</span><span class="facts">${facts(o)}</span>${sus ? `<span class="flag">חשוד · בדוק לפני הכול</span>` : ""}</span>
+      <span class="edge"><span class="val ${sus ? "sus" : o.edge_pct > 0 && o.unit !== "score" ? "pos" : ""}">${fmtEdge(o)}</span><span class="meter"><i style="width:${pct}%"></i></span><span class="lab">${UNIT[o.unit] || ""}</span></span>
+      <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </summary>
+    <div class="body">
+      <div class="stack">
+        ${o.details.spark ? `<div><h3>60 ימי מסחר</h3>${sparkline(o.details.spark)}</div>` : ""}
+        <div><h3>נתונים</h3><dl class="kv">${detailRows(o.details)}</dl></div>
+        ${o.details.legs ? `<div><h3>סדר הביצוע</h3><div class="legs">${o.details.legs.map((l) => `<span>${esc(l)}</span>`).join("")}</div></div>` : ""}
+      </div>
+      <div class="stack">
+        <div><h3>סיכונים</h3><ul class="risks">${o.risks.map((r, i) => `<li class="${sus && i === 0 ? "crit" : ""}">${bidi(r)}</li>`).join("")}</ul></div>
+        <div><h3>לפני שפועלים</h3><ul class="check">${checks.map((c, i) => `<li><label><input type="checkbox" id="chk-${idx}-${i}"><span>${bidi(c)}</span></label></li>`).join("")}</ul></div>
+        <button type="button" class="btn btn-ghost copy" data-copy="${idx}">העתק סיכום</button>
+      </div>
+    </div>
+  </details>`;
+}
+
+let shown = [];
+function renderSections() {
+  const open = new Set([...document.querySelectorAll(".opp[open]")].map((d) => d.dataset.key));
+  shown = visible();
+  if (!state.generated_at && !shown.length) {
+    $("sections").innerHTML = `<div class="empty"><b>הסריקה הראשונה רצה</b>התוצאות יופיעו כאן בעוד כדקה.</div>`;
+    return;
+  }
+  if (!state.opportunities.length && (state.errors || []).length >= 3) {
+    $("sections").innerHTML = `<div class="empty"><b>רוב מקורות הנתונים לא ענו</b>בדוק את החיבור לאינטרנט. ייתכן גם שהבורסות חוסמות את המדינה או הרשת שלך. הפרטים מופיעים ב"מצב מקורות".</div>`;
+    return;
+  }
+  if (!shown.length) {
+    $("sections").innerHTML = `<div class="empty"><b>אין הזדמנויות שמתאימות לסינון</b>נסה לבחור "הכל", לנקות את החיפוש, או להוריד את הספים ב-config.json.</div>`;
+    return;
+  }
+  const byType = {};
+  shown.forEach((o, i) => (byType[o.type] = byType[o.type] || []).push([o, i]));
+  const order = Object.keys(TYPES).filter((t) => byType[t]).concat(Object.keys(byType).filter((t) => !TYPES[t]));
+  $("sections").innerHTML = order.map((t) => {
+    const items = byType[t].sort((a, b) => b[0].edge_pct - a[0].edge_pct);
+    const max = Math.max(...items.filter(([o]) => o.severity !== "suspicious").map(([o]) => Math.abs(o.edge_pct)), 0) || Math.abs(items[0][0].edge_pct);
+    const unit = UNIT[items[0][0].unit] || "";
+    return `<section class="section"><div class="section-head"><h2>${esc((TYPES[t] || { name: t }).name)}</h2><span class="unit">${items.length} · ממוין לפי ${unit}</span></div>
+      <div class="list">${items.map(([o, i]) => row(o, max, i)).join("")}</div></section>`;
+  }).join("");
+  document.querySelectorAll(".opp").forEach((d) => { if (open.has(d.dataset.key)) d.open = true; });
+}
+
+function renderSources() {
+  const errs = state.errors || [];
+  const failed = (s) => errs.find((e) => e.startsWith(s + ":"));
+  const used = SOURCES.filter((s) => s !== "yahoo");
+  const yahooFails = errs.filter((e) => e.startsWith("yahoo:")).length;
+  const items = used.map((s) => {
+    const f = failed(s);
+    return `<li title="${f ? esc(f) : ""}"><span class="dot ${f ? "old" : state.generated_at ? "ok" : ""}"></span><span class="name">${s}</span><span class="st">${f ? "נכשל" : state.generated_at ? "תקין" : "ממתין"}</span></li>`;
+  });
+  items.push(`<li><span class="dot ${yahooFails ? "stale" : state.generated_at ? "ok" : ""}"></span><span class="name">yahoo</span><span class="st">${yahooFails ? `${yahooFails} סימולים נכשלו` : state.generated_at ? "תקין" : "ממתין"}</span></li>`);
+  $("sources").innerHTML = items.join("");
+}
+
+function renderFresh() {
+  const dot = $("freshDot"), txt = $("freshText");
+  document.body.classList.toggle("scanning", !!state.scanning);
+  $("scanBtn").disabled = !!state.scanning;
+  $("scanIcon").hidden = !state.scanning;
+  $("scanLabel").textContent = state.scanning ? "סורק…" : "סרוק עכשיו";
+  if (!state.generated_at) { dot.className = "dot"; txt.textContent = "עוד לא נסרק"; return; }
+  const mins = (Date.now() - new Date(state.generated_at).getTime()) / 60000;
+  const interval = state.interval_min || 10;
+  dot.className = "dot " + (mins <= interval * 1.5 ? "ok" : mins <= interval * 3 ? "stale" : "old");
+  const rel = mins < 1 ? "עכשיו" : mins < 60 ? `לפני ${Math.round(mins)} דק'` : `לפני ${Math.round(mins / 60)} שע'`;
+  const at = new Date(state.generated_at).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
+  txt.innerHTML = `עודכן ${rel}<span class="long"> · <span class="num">${at}</span> · סריקה כל <span class="num">${interval}</span> דק'</span>`;
+}
+
+function render() { renderFresh(); renderSummary(); renderChips(); renderSections(); renderSources(); }
+
+/* ---------- data ---------- */
+async function load() {
+  try {
+    const r = await fetch("api/latest", { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    state = await r.json();
+    live = true;
+  } catch {
+    state = exampleState();
+    live = false;
+  }
+  $("demo").hidden = live;
+  render();
+  if (live) schedule();
+}
+
+function schedule() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    try { state = await (await fetch("api/latest", { cache: "no-store" })).json(); render(); } catch {}
+    schedule();
+  }, state.scanning ? 2000 : 30000);
+}
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 4200);
+}
+
+/* ---------- events ---------- */
+$("scanBtn").addEventListener("click", async () => {
+  if (!live) { toast("זו תצוגת דוגמה. הרץ python agent.py --serve כדי לסרוק את הבורסות באמת."); return; }
+  try {
+    state = await (await fetch("api/scan", { method: "POST" })).json();
+    state.scanning = true;
+    render(); schedule();
+  } catch { toast("השרת לא עונה. ודא ש-agent.py --serve עדיין רץ בטרמינל."); }
+});
+$("chips").addEventListener("click", (e) => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  group = b.dataset.g; store.set("radar.group", group);
+  renderChips(); renderSections();
+});
+$("q").addEventListener("input", renderSections);
+$("hideSus").addEventListener("change", (e) => { store.set("radar.hideSus", e.target.checked); renderSections(); });
+$("sections").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  const o = shown[+b.dataset.copy];
+  const text = `${o.asset}: ${o.title}\n${UNIT[o.unit]}: ${fmtEdge(o)}\n` +
+    Object.entries(o.details).filter(([k]) => k !== "spark").map(([k, v]) => `${LABELS[k] || k}: ${Array.isArray(v) ? v.join(" → ") : v}`).join("\n") +
+    `\nסיכונים: ${o.risks.join("; ")}`;
+  try { await navigator.clipboard.writeText(text); toast("הסיכום הועתק"); }
+  catch { toast("לא הצלחתי להעתיק. אפשר לסמן את הנתונים ולהעתיק ידנית."); }
+});
+setInterval(() => state && renderFresh(), 30000);
+load();
+</script>

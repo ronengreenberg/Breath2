@@ -22,6 +22,8 @@ python agent.py --loop 15            # סריקה כל 15 דקות
 python agent.py --ai                 # מוסיף סיכום בעברית מ-Claude (צריך ANTHROPIC_API_KEY)
 ```
 
+**דשבורד:** `python agent.py --serve` ואז פותחים את http://localhost:8765. הוא סורק כל 10 דקות (או לפי `--loop`), ויש בו כפתור "סרוק עכשיו", סינון לפי אסטרטגיה, חיפוש סימול ורשימת בדיקות לפני שפועלים.
+
 הדו"חות נשמרים בתיקייה `reports/` כקובצי Markdown ו-JSON.
 
 **התראות בטלגרם:** מגדירים את `TELEGRAM_BOT_TOKEN` ואת `TELEGRAM_CHAT_ID`. הסוכן ישלח הודעה כשהוא מוצא הזדמנות ארביטראז'.
