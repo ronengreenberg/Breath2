@@ -282,7 +282,7 @@ function screen() {
   const back = [
     `<path class="rx-grid" d="${grid.join("")}"/>`,
     `<path class="rx-trace" data-part="trace" d="${trace}"/>`,
-    `<text class="rx-text" x="${LCD.x0 + 2}" y="${-(LCD.z1 - 3.4)}" font-size="2.4">EIT · Cs 852/510 nm</text>`,
+    `<text class="rx-text" x="${LCD.x0 + 2}" y="${-(LCD.z1 - 3.4)}" font-size="2.4">PhyQ · EIT · Cs 852/510 nm</text>`,
     `<circle class="rx-lock" cx="${LCD.x1 - 12.6}" cy="${-(LCD.z1 - 2.6)}" r="0.8"/>`,
     `<text class="rx-text" x="${LCD.x1 - 11.2}" y="${-(LCD.z1 - 3.4)}" font-size="2.4">LOCKED</text>`,
     `<text class="rx-text" data-part="lcd-e" x="${LCD.x0 + 2}" y="${-(LCD.z0 + 1.2)}" font-size="2.4">E 0.00 V/m</text>`,
@@ -442,7 +442,7 @@ const EIT = ${JSON.stringify(EIT)};
 ${traceOf.toString()}
 ${splitOf.toString()}
 ${eitPlotOf.toString()}
-const STEP_TIME = 13;
+const STEP_TIME = window.__STEP || 13;
 const stage = document.querySelector(".iso-stage");
 const svg = stage.querySelector("svg");
 const trace = svg.querySelector('[data-part="trace"]');
@@ -600,9 +600,10 @@ function tick(now) {
   const panning = moveCamera(dt, calm);
   const animating = panning || (focused && playing) || freeTouring || (focused && (STOPS[stop].id === "atoms" || STOPS[stop].sweep) && !calm);
   const settled = !animating && field === fieldTarget && lift.rate === 0 && lift.at === want;
-  frame = visible && !settled ? requestAnimationFrame(tick) : 0;
+  // frame is a flag, not the rAF id: an id of 0 would let run() start a second loop
+  frame = visible && !settled ? (requestAnimationFrame(tick), 1) : 0;
 }
-const run = () => { if (!frame && visible) { last = 0; frame = requestAnimationFrame(tick); } };
+const run = () => { if (!frame && visible) { last = 0; frame = 1; requestAnimationFrame(tick); } };
 const pause = () => { playing = false; draw(); run(); };
 const steer = (value) => {
   fieldTarget = clamp(value, 0, MODEL.maxField);
@@ -644,6 +645,7 @@ stage.addEventListener("keydown", (event) => {
   steer(to);
 });
 focusStop(0);
+window.__tour = { focusStop, showAll, play() { playing = true; focusStop(0); }, stops: STOPS.length };
 `;
 
 const css = `<style>
@@ -740,7 +742,7 @@ const body =
   css +
   k.plateHtml({
     fig: "Fig 1",
-    title: "Rydberg receiver",
+    title: "PhyQ receiver",
     hint: "Follow the tour below, or pick a part",
     readout: "E 0.30 V/m · Δ 2.3 MHz (merged)",
     keys: [
@@ -768,7 +770,7 @@ applyTheme();
 dark.addEventListener("change", applyTheme);
 new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 `;
-  const frame = `<title>Rydberg Receiver</title>
+  const frame = `<title>PhyQ Receiver</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 :root{--page:#f2f2ef}
@@ -784,6 +786,47 @@ ${k.ISO_CSS}
 <script type="module">${(themeScript + kitScript() + live).replace(/<\/(script)/gi, "<\\/$1")}</script>
 `;
   writeFileSync(join(HERE, "artifact.html"), frame);
+
+  // A 1280 × 720 page for the video: drawing on the left, the explanation on the right, title cards on top.
+  const videoCss = `<style>
+html,body{margin:0;width:1280px;height:720px;overflow:hidden;background:var(--anatomy-page)}
+.vid{position:relative;width:1280px;height:720px;display:grid;grid-template-columns:800px 1fr;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-text);-webkit-font-smoothing:antialiased}
+.vid-stage{display:flex;align-items:center;justify-content:center;padding:24px 0 24px 28px}
+.vid-stage .iso-stage{width:100%;border-radius:10px;background:var(--anatomy-card)}
+.vid-stage svg{display:block;width:100%;height:auto}
+.vid-panel{display:flex;flex-direction:column;gap:14px;padding:34px 40px 28px 30px;min-width:0}
+.vid-brand{display:flex;align-items:baseline;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--anatomy-faint)}
+.vid-brand b{font-size:30px;letter-spacing:-.01em;color:var(--anatomy-strong);font-weight:700}
+.vid-brand span{font:12px var(--anatomy-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--anatomy-muted)}
+.vid .rx-guide{border-top:0;margin:0;padding:0;gap:12px}
+.vid .rx-guide-body,.vid .rx-guide-body:has(#rx-diagram:not([hidden])){grid-template-columns:minmax(0,1fr)}
+.vid #rx-title{font-size:23px}
+.vid #rx-text{font-size:15.5px;line-height:1.55}
+.vid .rx-diagram{max-height:200px}
+.vid .rx-chips,.vid .rx-guide-nav button{display:none}
+.vid .rx-guide-nav{order:-1}
+.vid-read{margin-top:auto;font:13px var(--anatomy-mono);color:var(--anatomy-strong);font-variant-numeric:tabular-nums}
+.vid-hidden{position:absolute;left:-9999px;top:0}
+.vid-card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:color-mix(in srgb,var(--anatomy-page) 86%,transparent);opacity:0;transition:opacity .8s ease;pointer-events:none;text-align:center}
+.vid-card.on{opacity:1}
+.vid-card h1{margin:0;font-size:96px;line-height:1;letter-spacing:-.02em;color:var(--anatomy-strong)}
+.vid-card p{margin:0;font:15px var(--anatomy-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--anatomy-text)}
+.vid-card em{font-style:normal;color:var(--rx-glow)}
+</style>`;
+  const video = k.pageHtml({
+    title: "PhyQ video",
+    theme: "dark",
+    width: 1280,
+    body: `${css}${videoCss}<div class="vid">
+<div class="vid-stage"><div class="iso-stage" tabindex="0">${svg}</div></div>
+<aside class="vid-panel"><div class="vid-brand"><b>PhyQ</b><span>Quantum RF receiver</span></div>${guideHtml}<div class="vid-read"><span data-readout></span></div></aside>
+<div class="vid-hidden">${controls}</div>
+<div class="vid-card on" id="vid-card"><h1>PhyQ</h1><p>Quantum RF receiver · <em>Rydberg-atom antenna</em></p><p id="vid-sub">One unit. Two instruments.</p></div>
+</div>`,
+    script: "window.__STEP = 10;" + kitScript() + live,
+  }).replace('.iso-page{width:min(1280px,100% - 32px);margin:64px auto 96px}', ".iso-page{margin:0}");
+  writeFileSync(join(HERE, "video.html"), video);
+  console.log("wrote video.html");
   console.log("wrote artifact.html");
 }
 console.log("wrote", name);
