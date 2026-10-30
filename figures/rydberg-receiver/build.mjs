@@ -6,6 +6,7 @@ import * as G from "../../.claude/skills/anatomy/kit/lathe.mjs";
 import { tubePieces, tubeSvg } from "../../.claude/skills/anatomy/kit/tube.mjs";
 import { kitScript } from "../../.claude/skills/anatomy/scripts/inline-kit.mjs";
 import { MODEL, traceOf, splitOf } from "./model.mjs";
+import { STOPS, LADDER, EIT, eitPlotOf } from "./guide.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const theme = process.argv.includes("--light") ? "light" : "dark";
@@ -79,6 +80,10 @@ const flat = (x0, z0, x1, z1, r, steps = 6) => k.pathOf(k.roundedPlan({ x: x0, y
 const sideSlot = (x, y, z0, z1, half = 0.8) => k.pathOf(k.roundedPlan({ x: y - half, y: z0, w: half * 2, d: z1 - z0, r: half }, 4).map(([u, z]) => at([x, u, z])), true);
 const alongY = (x, y, z) => G.frameOf([x, y, z], [0, 1, 0], [1, 0, 0], [0, 0, 1]);
 const alongX = (x, y, z) => G.frameOf([x, y, z], [1, 0, 0], [0, -1, 0], [0, 0, 1]);
+
+// Every part the tour can spotlight sits in its own group, so a <use> can draw it again above the veil.
+let tours = 0;
+const T = (part, svg) => `<g data-tour="${part}" id="rx-t${tours++}">${svg}</g>`;
 
 let clips = 0;
 function recess({ x0, x1, z0, z1, r, depth: deep }, y, back = "", backClass = "rx-well", inside = "") {
@@ -208,62 +213,61 @@ function internals() {
   flatItems.push(D(holes, { size: 0.35, tone: "lo" }));
   // electronics board on standoffs
   for (const [x, y] of byDepth(k.corners(PCB, 4))) flatItems.push(S(k.cylinder(x, y, 1.6, FLOOR, PCB_Z - FLOOR, P, 14), { tone: "mid" }));
-  flatItems.push(S(k.slabOf(PCB, PCB_Z, PCB_TOP - PCB_Z, P, 3), { tone: "lo" }));
-  flatItems.push(L(k.planOutline(k.insetPlan(PCB, 3), PCB_TOP, P, 3), { tone: "faint" }));
+  flatItems.push(T("electronics", S(k.slabOf(PCB, PCB_Z, PCB_TOP - PCB_Z, P, 3), { tone: "lo" }) + L(k.planOutline(k.insetPlan(PCB, 3), PCB_TOP, P, 3), { tone: "faint" })));
 
   const items = [];
-  const put = (centre, svg) => items.push({ key: depth(centre), svg });
+  const put = (centre, svg, part) => items.push({ key: depth(centre), svg: part ? T(part, svg) : svg });
 
   // probe laser, 852 nm
   const probe = { x: -108, y: -45, w: 30, d: 14, r: 2 };
-  put([-93, -38, 13], box(probe, BOARD_TOP, 12, "hi", L(k.planOutline(k.insetPlan(probe, 2.5), BOARD_TOP + 12, P, 3), { tone: "faint" }) + D([at([probe.x + 3, probe.y + 3, BOARD_TOP + 12]), at([probe.x + probe.w - 3, probe.y + probe.d - 3, BOARD_TOP + 12])], { size: 0.4 })));
+  put([-93, -38, 13], box(probe, BOARD_TOP, 12, "hi", L(k.planOutline(k.insetPlan(probe, 2.5), BOARD_TOP + 12, P, 3), { tone: "faint" }) + D([at([probe.x + 3, probe.y + 3, BOARD_TOP + 12]), at([probe.x + probe.w - 3, probe.y + probe.d - 3, BOARD_TOP + 12])], { size: 0.4 })), "probe");
   // coupling laser, 510 nm, with TEC fins
   const coupling = { x: -108, y: -24, w: 30, d: 16, r: 2 };
   let fins = "";
   for (let i = 0; i < 6; i++) fins += S(k.slabOf({ x: coupling.x + 3 + i * 4.6, y: coupling.y + 2, w: 1.4, d: coupling.d - 4, r: 0.4 }, BOARD_TOP + 13, 3, P, 2), { tone: "mid" });
-  put([-93, -16, 14], box(coupling, BOARD_TOP, 13, "hi", fins));
+  put([-93, -16, 14], box(coupling, BOARD_TOP, 13, "hi", fins), "coupling");
   // collimator barrels into the dichroic combiner
   const barrel = (y, z) => {
     const F = alongX(-78, y, z);
     return S(G.disc(0, 4, 3, F, P), { tone: "mid" }) + S(G.disc(4, 5, 2.4, F, P), { tone: "mid" });
   };
-  put([-75, -38, 13], barrel(-38, BOARD_TOP + 6));
-  put([-75, -16, 14], barrel(-16, BOARD_TOP + 6.5));
+  put([-75, -38, 13], barrel(-38, BOARD_TOP + 6), "probe");
+  put([-75, -16, 14], barrel(-16, BOARD_TOP + 6.5), "coupling");
   // dichroic combiner block
   const combiner = { x: -73, y: -44, w: 13, d: 34, r: 1.5 };
   const window_ = { ...k.insetPlan(combiner, 2), r: 0.6 };
-  put([-66, -27, 12], box(combiner, BOARD_TOP, 11, "mid", L(k.planOutline(window_, BOARD_TOP + 11, P, 2) + k.lineOnTop([window_.x + 2, window_.y], [window_.x + window_.w - 2, window_.y + window_.d], BOARD_TOP + 11, P), { tone: "lo" })));
+  put([-66, -27, 12], box(combiner, BOARD_TOP, 11, "mid", L(k.planOutline(window_, BOARD_TOP + 11, P, 2) + k.lineOnTop([window_.x + 2, window_.y], [window_.x + window_.w - 2, window_.y + window_.d], BOARD_TOP + 11, P), { tone: "lo" })), "launch");
   // fiber launcher on the combiner face
   const launch = alongX(-60, -27, BOARD_TOP + 6);
-  put([-57, -27, 13], S(G.disc(0, 3, 2.6, launch, P), { tone: "mid" }) + S(G.disc(3, 5, 1.6, launch, P), { tone: "mid" }));
+  put([-57, -27, 13], S(G.disc(0, 3, 2.6, launch, P), { tone: "mid" }) + S(G.disc(3, 5, 1.6, launch, P), { tone: "mid" }), "launch");
   // photodiode for the returning probe light
   const pd = { x: -58, y: -10, w: 12, d: 10, r: 1.5 };
-  put([-52, -5, 11], box(pd, BOARD_TOP, 7, "mid", L(k.ring(pd.x + 6, pd.y + 5, 2, BOARD_TOP + 7, P, 16), { tone: "lo" })));
+  put([-52, -5, 11], box(pd, BOARD_TOP, 7, "mid", L(k.ring(pd.x + 6, pd.y + 5, 2, BOARD_TOP + 7, P, 16), { tone: "lo" })), "photodiode");
 
   // internal fibers to the front bulkhead
   const fiber = (points) => {
     const route = G.fillet(points, 5, 7, { P, tube: 0.6 });
-    for (const piece of tubePieces(route, 0.6, P, { maxLength: 10 })) put(piece.mid, `<g class="rx-fiber">${tubeSvg(piece, { tone: "lo" })}</g>`);
+    for (const piece of tubePieces(route, 0.6, P, { maxLength: 10 })) put(piece.mid, `<g class="rx-fiber">${tubeSvg(piece, { tone: "lo" })}</g>`, "fiber");
   };
   fiber([[-55, -27, BOARD_TOP + 6], [-36, -27, BOARD_TOP + 6], [-36, 30, BOARD_TOP + 6], [FIBER_X - 2, 34, PORT_Z], [FIBER_X - 2, FRONT - WALL - 4, PORT_Z]]);
   fiber([[-46, -5, BOARD_TOP + 4], [-31, -5, BOARD_TOP + 4], [-31, 26, BOARD_TOP + 4], [FIBER_X + 2, 34, PORT_Z], [FIBER_X + 2, FRONT - WALL - 4, PORT_Z]]);
   const bulk = { x: FIBER_X - 6, y: FRONT - WALL - 4, w: 12, d: 4, r: 1 };
-  put([FIBER_X, FRONT - WALL - 2, PORT_Z], box(bulk, PORT_Z - 6, 12, "mid"));
+  put([FIBER_X, FRONT - WALL - 2, PORT_Z], box(bulk, PORT_Z - 6, 12, "mid"), "fiber");
 
   // electronics
   const fpga = { x: 6, y: -30, w: 20, d: 20, r: 1 };
   let sink = "";
   for (let i = 0; i < 5; i++) sink += S(k.slabOf({ x: fpga.x + 2 + i * 3.6, y: fpga.y + 2, w: 1.2, d: fpga.d - 4, r: 0.3 }, PCB_TOP + 2.6, 3.4, P, 2), { tone: "mid" });
-  put([16, -20, 11], box(fpga, PCB_TOP, 2.6, "mid", sink));
-  for (const [x, y] of [[-10, -46], [-10, -36]]) put([x + 5, y + 3, 10], box({ x, y, w: 10, d: 6, r: 0.6 }, PCB_TOP, 1.4, "mid", D([0, 1, 2, 3].map((i) => at([x + 2 + i * 2, y + 6, PCB_TOP])), { size: 0.3 })));
+  put([16, -20, 11], box(fpga, PCB_TOP, 2.6, "mid", sink), "electronics");
+  for (const [x, y] of [[-10, -46], [-10, -36]]) put([x + 5, y + 3, 10], box({ x, y, w: 10, d: 6, r: 0.6 }, PCB_TOP, 1.4, "mid", D([0, 1, 2, 3].map((i) => at([x + 2 + i * 2, y + 6, PCB_TOP])), { size: 0.3 })), "electronics");
   const can = { x: -12, y: -22, w: 12, d: 20, r: 1 };
-  put([-6, -12, 12], box(can, PCB_TOP, 6, "mid", D(k.dotGrid(can.x + 3, can.y + 3, 3, 5, 3.4, PCB_TOP + 6, P), { size: 0.35, tone: "lo" })));
+  put([-6, -12, 12], box(can, PCB_TOP, 6, "mid", D(k.dotGrid(can.x + 3, can.y + 3, 3, 5, 3.4, PCB_TOP + 6, P), { size: 0.35, tone: "lo" })), "electronics");
   const psu = { x: 34, y: -46, w: 26, d: 30, r: 2 };
   const vents = Array.from({ length: 7 }, (_, i) => k.planOutline({ x: psu.x + 4, y: psu.y + 4 + i * 3.2, w: psu.w - 8, d: 1.2, r: 0.6 }, PCB_TOP + 14, P, 3)).join("");
-  put([47, -31, 16], box(psu, PCB_TOP, 14, "mid", L(vents, { tone: "faint" })));
+  put([47, -31, 16], box(psu, PCB_TOP, 14, "mid", L(vents, { tone: "faint" })), "psu");
   const osc = { x: 34, y: -8, w: 20, d: 20, r: 2 };
-  put([44, 2, 14], box(osc, PCB_TOP, 9, "mid", L(k.planOutline(k.insetPlan(osc, 3), PCB_TOP + 9, P, 3), { tone: "faint" }) + D(k.corners(osc, 2.2).map(([x, y]) => at([x, y, PCB_TOP + 9])), { size: 0.4 })));
-  for (const [x, y] of [[-6, 4], [-1, 4], [4, 4], [26, -40], [26, -33]]) put([x, y, 12], S(k.cylinder(x, y, 2, PCB_TOP, 6, P, 18), { tone: "mid" }) + L(k.ring(x, y, 1.2, PCB_TOP + 6, P, 12), { tone: "faint" }));
+  put([44, 2, 14], box(osc, PCB_TOP, 9, "mid", L(k.planOutline(k.insetPlan(osc, 3), PCB_TOP + 9, P, 3), { tone: "faint" }) + D(k.corners(osc, 2.2).map(([x, y]) => at([x, y, PCB_TOP + 9])), { size: 0.4 })), "clock");
+  for (const [x, y] of [[-6, 4], [-1, 4], [4, 4], [26, -40], [26, -33]]) put([x, y, 12], S(k.cylinder(x, y, 2, PCB_TOP, 6, P, 18), { tone: "mid" }) + L(k.ring(x, y, 1.2, PCB_TOP + 6, P, 12), { tone: "faint" }), x > 20 ? "psu" : "electronics");
 
   items.sort((a, b) => a.key - b.key);
   return flatItems.join("") + items.map((item) => item.svg).join("");
@@ -313,14 +317,13 @@ function panel() {
   const out = [S(k.slabOf(wallPlans.front, FLOOR, RIM - FLOOR, P, 2, 0.4), { tone: "mid" })];
   out.push(`<g transform="${planeOf(FRONT)}"><path class="iso-line" data-tone="faint" d="${flat(CASE.x + 3, FLOOR + 2.5, SIDE - 3, RIM - 2.5, 2)}"/></g>`);
   out.push(D([[CASE.x + 6, FLOOR + 5.5], [SIDE - 6, FLOOR + 5.5], [CASE.x + 6, RIM - 5.5], [SIDE - 6, RIM - 5.5]].map(([x, z]) => at([x, FRONT, z])), { size: 0.45 }));
-  out.push(screen());
-  out.push(fiberPort());
-  out.push(circular(RF_X, "RF / DATA", 7));
-  out.push(circular(PWR_X, "POWER", 4));
+  out.push(T("screen", screen()));
+  out.push(T("fiber", fiberPort()));
+  out.push(T("panel", circular(RF_X, "RF / DATA", 7)));
+  out.push(T("panel", circular(PWR_X, "POWER", 4)));
   // status LED and its well
   out.push(`<g transform="${planeOf(FRONT)}"><path class="iso-line" data-tone="lo" d="${flat(48, 15, 62, 21, 3)}"/></g>`);
-  out.push(`<g data-part="led">${D([at([52, FRONT, 18])], { size: 0.9, tone: "hi" })}</g>`);
-  out.push(D([at([58, FRONT, 18])], { size: 0.6, tone: "lo" }));
+  out.push(T("panel", `<g data-part="led">${D([at([52, FRONT, 18])], { size: 0.9, tone: "hi" })}</g>` + D([at([58, FRONT, 18])], { size: 0.6, tone: "lo" })));
   return out.join("");
 }
 
@@ -352,12 +355,12 @@ function stand() {
   out.push(L([64, 76].map((z) => k.sideArc(x, y, 2.2, z, P, 12)).join(""), { tone: "faint" }));
   // yoke under the caps
   out.push(S(k.slabOf({ x: x - CAP_S, y: y - 5, w: CAP_S * 2, d: 10, r: 1.5 }, MAST_TOP, 3, P, 3, 0.4), { tone: "mid" }));
-  return out.join("");
+  return T("stand", out.join(""));
 }
 
 function head() {
   const items = [];
-  const put = (centre, svg) => items.push({ key: depth(centre), svg });
+  const put = (centre, svg, part = "head") => items.push({ key: depth(centre), svg: T(part, svg) });
   // end caps (fiber collimators), made of dielectric
   const cap = (s0, s1) => S(G.disc(s0, s1, CAP_R, HEAD, P), { tone: "mid", inner: L(G.arcOf(HEAD, (s0 + s1) / 2, CAP_R, P), { tone: "faint" }) });
   put(G.pointOf(HEAD, -(ROD_S + CAP_S) / 2, 0, 0), cap(-CAP_S, -ROD_S));
@@ -372,7 +375,15 @@ function head() {
     S(G.disc(-CELL_S, CELL_S, CELL_R, HEAD, P), { tone: "hi", lit: true, className: "rx-cell" }) +
     S(G.disc(CELL_S, CELL_S + 0.8, CELL_R + 0.6, HEAD, P), { tone: "hi", lit: true }) +
     `<path class="rx-beam" data-part="beam" d="${k.pathOf([at(G.pointOf(HEAD, -ROD_S, 0, 0)), at(G.pointOf(HEAD, ROD_S, 0, 0))])}"/>`;
-  put(G.pointOf(HEAD, 0, 0, 0), cell);
+  put(G.pointOf(HEAD, 0, 0, 0), cell, "cell");
+  // the atoms: a scatter of dots through the glass, which glow when the Rydberg stop is on
+  const atoms = [];
+  for (let i = 0; i < 26; i++) {
+    const s = -CELL_S + 1.2 + ((i * 7.31) % 1) * (2 * CELL_S - 2.4);
+    const r = (CELL_R - 1.2) * Math.sqrt(((i * 3.77) % 1));
+    atoms.push(at(G.pointOf(HEAD, s, r, i * 2.4)));
+  }
+  items.push({ key: depth(G.pointOf(HEAD, 0, 0, 0)) + 0.01, svg: T("atoms", `<g class="rx-atoms">${D(atoms, { size: 0.55, tone: "lit" })}</g>`) });
   const front =
     cap(ROD_S, CAP_S) +
     L(G.circleOf(HEAD, CAP_S, 4.4, P, 48), { tone: "lo" }) +
@@ -397,7 +408,7 @@ function cable() {
   // boot on the port side
   const boot = S(G.disc(12, 15, 1.9, alongY(FIBER_X, FRONT, PORT_Z), P), { tone: "hi", className: "rx-boot" });
   const pieces = tubePieces(route.slice(0), 1.4, P, { maxLength: 18 });
-  return boot + pieces.map((piece) => `<g class="rx-jacket">${tubeSvg(piece, { tone: "hi" })}</g>`).join("");
+  return T("fiber", boot + pieces.map((piece) => `<g class="rx-jacket">${tubeSvg(piece, { tone: "hi" })}</g>`).join(""));
 }
 
 const svg = k.figureSvg({
@@ -408,14 +419,16 @@ const svg = k.figureSvg({
   body: [
     plate(),
     tray(),
-    `<g data-part="cover-back" transform="">${coverBack()}</g>`,
+    `<g data-part="cover-back" data-tour="cover" id="rx-cover-back" transform="">${coverBack()}</g>`,
     internals(),
-    `<g data-part="cover-right" transform="">${coverRight()}</g>`,
+    `<g data-part="cover-right" data-tour="cover" id="rx-cover-right" transform="">${coverRight()}</g>`,
     panel(),
-    `<g data-part="lid" transform="">${lid()}</g>`,
+    `<g data-part="lid" data-tour="cover" id="rx-cover-lid" transform="">${lid()}</g>`,
     stand(),
     head(),
     cable(),
+    `<rect class="rx-veil" x="-20" y="-20" width="${WIDTH + 40}" height="${HEIGHT + 40}"/>`,
+    `<g class="rx-spot" aria-hidden="true"></g>`,
   ],
 });
 
@@ -423,24 +436,114 @@ const live = `
 const P = ${JSON.stringify(P)};
 const MODEL = ${JSON.stringify(MODEL)};
 const MOVE = ${JSON.stringify(MOVE)};
+const STOPS = ${JSON.stringify(STOPS)};
+const LADDER = ${JSON.stringify(LADDER)};
+const EIT = ${JSON.stringify(EIT)};
 ${traceOf.toString()}
 ${splitOf.toString()}
+${eitPlotOf.toString()}
+const STEP_TIME = 13;
 const stage = document.querySelector(".iso-stage");
 const svg = stage.querySelector("svg");
 const trace = svg.querySelector('[data-part="trace"]');
 const lcdE = svg.querySelector('[data-part="lcd-e"]');
 const lcdSplit = svg.querySelector('[data-part="lcd-split"]');
 const beam = svg.querySelector('[data-part="beam"]');
+const atoms = svg.querySelector(".rx-atoms");
+const spot = svg.querySelector(".rx-spot");
 const covers = ["cover-back", "cover-right", "lid"].map((name) => svg.querySelector('[data-part="' + name + '"]'));
 const readout = document.querySelector("[data-readout]");
 const slider = document.getElementById("rx-field");
 const sliderOut = document.getElementById("rx-field-out");
 const toggle = document.getElementById("rx-open");
+const guide = {
+  step: document.getElementById("rx-step"),
+  title: document.getElementById("rx-title"),
+  text: document.getElementById("rx-text"),
+  diagram: document.getElementById("rx-diagram"),
+  progress: document.getElementById("rx-progress"),
+  play: document.getElementById("rx-play"),
+  prev: document.getElementById("rx-prev"),
+  next: document.getElementById("rx-next"),
+  all: document.getElementById("rx-all"),
+  chips: [...document.querySelectorAll(".rx-chip")],
+};
 const still = matchMedia("(prefers-reduced-motion: reduce)");
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-const TOUR = [[0.3, 0], [1.6, 0], [3.2, 0], [3.2, 1], [1.0, 1], [0.3, 0]];
-let field = TOUR[0][0], fieldTarget = field, open = 0, openTarget = 0, lift = { at: 0, rate: 0 };
-let frame = 0, last = 0, clock = 0, touring = true, visible = true, idleTimer = 0;
+const FREE = [0.3, 1.6, 3.2, 1.0];
+let field = 0.3, fieldTarget = field, openTarget = 0, lift = { at: 0, rate: 0 };
+let frame = 0, last = 0, clock = 0, freeTouring = false, visible = true, idleTimer = 0;
+let stop = 0, playing = !still.matches, guideClock = 0, sweepClock = 0, focused = true, eitPath = null, eitGap = null;
+// The camera: the viewBox eases toward the spotlit part, so the tour points by moving in on it.
+const FULL = { x: 0, y: 0, w: ${WIDTH}, h: ${HEIGHT} };
+const view = { ...FULL };
+function viewTarget() {
+  if (!focused || !spot.firstChild) return FULL;
+  let box;
+  try { box = spot.getBBox(); } catch (error) { return FULL; }
+  if (!box.width) return FULL;
+  const aspect = FULL.w / FULL.h;
+  let w = Math.max(box.width * 1.9, box.height * 1.9 * aspect, FULL.w / 2.6);
+  w = Math.min(w, FULL.w);
+  const h = w / aspect;
+  const x = clamp(box.x + box.width / 2 - w / 2, FULL.x - 10, FULL.x + FULL.w - w + 10);
+  const y = clamp(box.y + box.height / 2 - h / 2 - h * 0.04, FULL.y - 10, FULL.y + FULL.h - h + 10);
+  return { x, y, w, h };
+}
+function moveCamera(dt, calm) {
+  const target = viewTarget();
+  const k = calm ? 1 : 1 - Math.exp(-dt / 0.55);
+  let moving = false;
+  for (const key of ["x", "y", "w", "h"]) {
+    view[key] += (target[key] - view[key]) * k;
+    if (Math.abs(target[key] - view[key]) < 0.05) view[key] = target[key];
+    else moving = true;
+  }
+  svg.setAttribute("viewBox", view.x.toFixed(2) + " " + view.y.toFixed(2) + " " + view.w.toFixed(2) + " " + view.h.toFixed(2));
+  return moving;
+}
+
+function focusStop(index) {
+  stop = (index + STOPS.length) % STOPS.length;
+  const item = STOPS[stop];
+  focused = true;
+  freeTouring = false;
+  guideClock = 0;
+  sweepClock = 0;
+  stage.dataset.focus = item.id;
+  spot.innerHTML = item.show.flatMap((part) => [...svg.querySelectorAll('[data-tour="' + part + '"]')].map((el) => '<use href="#' + el.id + '"/>')).join("");
+  guide.step.textContent = String(stop + 1).padStart(2, "0") + " / " + STOPS.length;
+  guide.title.textContent = item.title;
+  guide.text.textContent = item.text;
+  guide.diagram.innerHTML = item.diagram === "ladder" ? LADDER : item.diagram === "eit" ? EIT : "";
+  guide.diagram.hidden = !item.diagram;
+  eitPath = guide.diagram.querySelector("#rx-eit-path");
+  eitGap = guide.diagram.querySelector("#rx-eit-gap");
+  guide.chips.forEach((chip, i) => chip.setAttribute("aria-current", i === stop ? "step" : "false"));
+  openTarget = item.open ? 1 : 0;
+  if (!item.sweep) fieldTarget = item.field;
+  if (atoms) atoms.style.opacity = "";
+  draw();
+  run();
+}
+function showAll() {
+  focused = false;
+  playing = false;
+  delete stage.dataset.focus;
+  spot.innerHTML = "";
+  guide.chips.forEach((chip) => chip.setAttribute("aria-current", "false"));
+  guide.step.textContent = "All parts";
+  guide.title.textContent = "The whole instrument";
+  guide.text.textContent = "Pick any part from the list, or press Play to walk through them in order. The slider sets the RF field the cell is sitting in.";
+  guide.diagram.innerHTML = "";
+  guide.diagram.hidden = true;
+  eitPath = eitGap = null;
+  freeTouring = !still.matches;
+  clock = 0;
+  if (atoms) atoms.style.opacity = "";
+  draw();
+  run();
+}
 function draw() {
   trace.setAttribute("d", traceOf(field));
   const split = splitOf(field);
@@ -455,6 +558,18 @@ function draw() {
   if (slider && document.activeElement !== slider) slider.value = field.toFixed(2);
   if (sliderOut) sliderOut.textContent = field.toFixed(2) + " V/m";
   if (toggle) { toggle.textContent = openTarget ? "Close the case" : "Open the case"; toggle.setAttribute("aria-pressed", openTarget ? "true" : "false"); }
+  if (eitPath) {
+    const plot = eitPlotOf(field);
+    eitPath.setAttribute("d", plot.d);
+    eitGap.firstElementChild.setAttribute("d", plot.gap);
+    const label = eitGap.lastElementChild;
+    label.setAttribute("y", plot.labelY.toFixed(1));
+    label.setAttribute("x", String(plot.labelX));
+    if (label.textContent !== plot.label) label.textContent = plot.label;
+  }
+  guide.play.textContent = playing ? "Pause tour" : "Play tour";
+  guide.play.setAttribute("aria-pressed", playing ? "true" : "false");
+  guide.progress.style.transform = "scaleX(" + (playing && focused ? Math.min(1, guideClock / STEP_TIME) : 0).toFixed(3) + ")";
   stage.setAttribute("aria-valuenow", field.toFixed(2));
   stage.setAttribute("aria-valuetext", text);
 }
@@ -462,11 +577,18 @@ function tick(now) {
   const dt = last ? Math.min((now - last) / 1000, 1 / 30) : 1 / 60;
   last = now;
   const calm = still.matches;
-  if (touring) {
+  if (focused && playing) {
+    guideClock += dt;
+    if (guideClock >= STEP_TIME) focusStop(stop + 1);
+  }
+  if (focused) {
+    const item = STOPS[stop];
+    sweepClock += dt;
+    if (item.sweep) fieldTarget = 0.1 + 3.4 * (0.5 - 0.5 * Math.cos((2 * Math.PI * sweepClock) / (STEP_TIME * 0.62)));
+    if (item.id === "atoms" && atoms) atoms.style.opacity = calm ? "1" : (0.35 + 0.65 * (0.5 + 0.5 * Math.sin(now / 260))).toFixed(2);
+  } else if (freeTouring) {
     clock += dt;
-    const step = TOUR[Math.floor(clock / 2.6) % TOUR.length];
-    fieldTarget = step[0];
-    openTarget = step[1];
+    fieldTarget = FREE[Math.floor(clock / 2.6) % FREE.length];
   }
   field = calm ? fieldTarget : field + (fieldTarget - field) * (1 - Math.exp(-dt / 0.45));
   if (Math.abs(fieldTarget - field) < 0.002) field = fieldTarget;
@@ -475,35 +597,53 @@ function tick(now) {
   else for (let i = 0; i < 4; i++) { lift.rate += ((want - lift.at) * 26 - lift.rate * 10) * dt / 4; lift.at += lift.rate * dt / 4; }
   if (Math.abs(want - lift.at) < 0.0005 && Math.abs(lift.rate) < 0.001) { lift.at = want; lift.rate = 0; }
   draw();
-  const settled = !touring && field === fieldTarget && lift.rate === 0 && lift.at === want;
+  const panning = moveCamera(dt, calm);
+  const animating = panning || (focused && playing) || freeTouring || (focused && (STOPS[stop].id === "atoms" || STOPS[stop].sweep) && !calm);
+  const settled = !animating && field === fieldTarget && lift.rate === 0 && lift.at === want;
   frame = visible && !settled ? requestAnimationFrame(tick) : 0;
 }
 const run = () => { if (!frame && visible) { last = 0; frame = requestAnimationFrame(tick); } };
-const hold = () => { touring = false; clearTimeout(idleTimer); idleTimer = setTimeout(() => { touring = !still.matches; clock = 0; run(); }, 5000); run(); };
-const steer = (value) => { fieldTarget = clamp(value, 0, MODEL.maxField); hold(); };
+const pause = () => { playing = false; draw(); run(); };
+const steer = (value) => {
+  fieldTarget = clamp(value, 0, MODEL.maxField);
+  if (focused && STOPS[stop].sweep) STOPS[stop] = { ...STOPS[stop], sweep: false, field: fieldTarget };
+  playing = false;
+  freeTouring = false;
+  clearTimeout(idleTimer);
+  if (!focused) idleTimer = setTimeout(() => { freeTouring = !still.matches; clock = 0; run(); }, 5000);
+  run();
+};
 new IntersectionObserver((entries) => { visible = entries[entries.length - 1].isIntersecting; if (visible) run(); }, { rootMargin: "120px 0px" }).observe(stage);
-if (still.matches) touring = false;
 stage.addEventListener("pointermove", (event) => {
-  if (event.pointerType !== "mouse") return;
+  if (event.pointerType !== "mouse" || (focused && playing)) return;
   const box = svg.getBoundingClientRect();
   steer(clamp(((event.clientX - box.left) / box.width - 0.15) / 0.7, 0, 1) * MODEL.maxField);
 });
-const flip = () => { openTarget = openTarget ? 0 : 1; hold(); draw(); };
+const flip = () => { openTarget = openTarget ? 0 : 1; playing = false; draw(); run(); };
 stage.addEventListener("click", flip);
-if (toggle) toggle.addEventListener("click", flip);
-if (slider) slider.addEventListener("input", () => steer(parseFloat(slider.value)));
+toggle.addEventListener("click", flip);
+slider.addEventListener("input", () => steer(parseFloat(slider.value)));
+guide.prev.addEventListener("click", () => { focusStop(focused ? stop - 1 : STOPS.length - 1); pause(); });
+guide.next.addEventListener("click", () => { focusStop(focused ? stop + 1 : 0); pause(); });
+guide.play.addEventListener("click", () => {
+  if (playing) { pause(); return; }
+  playing = true;
+  if (focused) { guideClock = 0; draw(); run(); } else focusStop(0);
+});
+guide.all.addEventListener("click", showAll);
+guide.chips.forEach((chip, i) => chip.addEventListener("click", () => { focusStop(i); pause(); }));
 stage.addEventListener("keydown", (event) => {
   let to = null;
   if (event.key === "ArrowRight" || event.key === "ArrowUp") to = fieldTarget + 0.2;
   if (event.key === "ArrowLeft" || event.key === "ArrowDown") to = fieldTarget - 0.2;
   if (event.key === "Home") to = 0;
   if (event.key === "End") to = MODEL.maxField;
-  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openTarget = openTarget ? 0 : 1; hold(); return; }
+  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); flip(); return; }
   if (to === null) return;
   event.preventDefault();
   steer(to);
 });
-draw();
+focusStop(0);
 `;
 
 const css = `<style>
@@ -530,7 +670,50 @@ const css = `<style>
 #rx-open:hover{border-color:var(--anatomy-hi)}
 #rx-open:focus-visible,.rx-field input:focus-visible,.iso-stage:focus-visible{outline:2px solid var(--rx-beam);outline-offset:2px}
 #rx-open[aria-pressed="true"]{background:var(--anatomy-top);border-color:var(--anatomy-hi)}
-.iso-stage{touch-action:pan-y;cursor:pointer}
+.iso-stage{touch-action:pan-y;cursor:pointer;overflow:hidden;border-radius:4px}
+.iso-stage > svg{overflow:hidden}
+.iso{--rx-glow:#7c4dff;--rx-probe:#c2412d;--rx-coupling:#1f9d55;--rx-rf:#7c4dff}
+.iso[data-theme="dark"]{--rx-glow:#b79cff;--rx-probe:#ff7a5c;--rx-coupling:#5ad38a;--rx-rf:#b79cff}
+.rx-veil{fill:var(--anatomy-card);opacity:0;transition:opacity .45s var(--anatomy-ease);pointer-events:none}
+.iso-stage[data-focus] .rx-veil{opacity:.74}
+.rx-spot{pointer-events:none;animation:rx-pulse 1.8s ease-in-out infinite}
+@keyframes rx-pulse{0%,100%{filter:drop-shadow(0 0 1px var(--rx-glow))}50%{filter:drop-shadow(0 0 4px var(--rx-glow)) drop-shadow(0 0 1.5px var(--rx-glow))}}
+@media (prefers-reduced-motion: reduce){.rx-spot{animation:none;filter:drop-shadow(0 0 2.5px var(--rx-glow))}}
+.rx-guide{display:grid;gap:14px;margin-top:14px;padding:16px 4px 4px;border-top:1px solid var(--anatomy-faint)}
+.rx-guide-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+#rx-step{font:12px/1 var(--anatomy-mono);letter-spacing:.08em;color:var(--rx-glow);font-variant-numeric:tabular-nums}
+#rx-title{margin:0;font-size:19px;line-height:1.25;font-weight:600;color:var(--anatomy-strong);text-wrap:balance}
+.rx-guide-body{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+.rx-guide-body:has(#rx-diagram:not([hidden])){grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+@media (max-width:560px){.rx-guide-body:has(#rx-diagram:not([hidden])){grid-template-columns:minmax(0,1fr)}}
+#rx-text{margin:0;max-width:62ch;color:var(--anatomy-text);font-size:14.5px;line-height:1.65}
+#rx-diagram{min-width:0}
+.rx-diagram{display:block;width:100%;height:auto;border:1px solid var(--anatomy-faint);border-radius:8px;background:var(--anatomy-face)}
+.rx-dg-level path,.rx-dg-axis path{stroke:var(--anatomy-mid);stroke-width:1.4;fill:none}
+.rx-dg-label text{font:10px var(--anatomy-mono);fill:var(--anatomy-text)}
+.rx-dg-label .rx-dg-note{fill:var(--anatomy-muted)}
+.rx-dg-tag{font:10px var(--anatomy-mono)}
+.rx-dg-probe{stroke:var(--rx-probe);stroke-width:2;fill:none}.rx-dg-probe-t{fill:var(--rx-probe)}
+.rx-dg-coupling{stroke:var(--rx-coupling);stroke-width:2;fill:none}.rx-dg-coupling-t{fill:var(--rx-coupling)}
+.rx-dg-rf{stroke:var(--rx-rf);stroke-width:1.6;fill:none}.rx-dg-rf-t{fill:var(--rx-rf)}
+.rx-dg-electron{fill:var(--anatomy-strong);animation:rx-climb 3.6s cubic-bezier(.5,0,.3,1) infinite}
+@keyframes rx-climb{0%,12%{transform:translateY(0)}36%,52%{transform:translateY(-44px)}76%,100%{transform:translateY(-106px)}}
+@media (prefers-reduced-motion: reduce){.rx-dg-electron{animation:none;transform:translateY(-106px)}}
+.rx-dg-curve{fill:none;stroke:var(--rx-glow);stroke-width:2;stroke-linejoin:round}
+.rx-dg-gap path{fill:none;stroke:var(--anatomy-strong);stroke-width:1}
+.rx-dg-gap text{font:10px var(--anatomy-mono);fill:var(--anatomy-strong)}
+.rx-guide-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rx-guide-nav button,.rx-chip{font:12px/1.2 var(--anatomy-mono);letter-spacing:.04em;color:var(--anatomy-strong);background:var(--anatomy-face);border:1px solid var(--anatomy-lo);border-radius:6px;padding:8px 12px;cursor:pointer}
+.rx-guide-nav button:hover,.rx-chip:hover{border-color:var(--anatomy-hi)}
+.rx-guide-nav button:focus-visible,.rx-chip:focus-visible{outline:2px solid var(--rx-glow);outline-offset:2px}
+#rx-play[aria-pressed="true"]{border-color:var(--rx-glow);color:var(--rx-glow)}
+.rx-track{flex:1 1 80px;height:2px;background:var(--anatomy-faint);border-radius:2px;overflow:hidden;min-width:60px}
+#rx-progress{display:block;height:100%;background:var(--rx-glow);transform-origin:left;transform:scaleX(0)}
+.rx-chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.rx-chip{padding:6px 10px;font-size:11.5px;color:var(--anatomy-text)}
+.rx-chip span{color:var(--anatomy-muted);margin-right:6px;font-variant-numeric:tabular-nums}
+.rx-chip[aria-current="step"]{border-color:var(--rx-glow);color:var(--anatomy-strong);background:var(--anatomy-top)}
+.rx-chip[aria-current="step"] span{color:var(--rx-glow)}
 </style>`;
 
 const controls = `<div class="rx-controls">
@@ -540,12 +723,25 @@ const controls = `<div class="rx-controls">
   <button id="rx-open" type="button" aria-pressed="false">Open the case</button>
 </div>`;
 
+const guideHtml = `<section class="rx-guide" aria-label="Guided tour of the parts">
+  <div class="rx-guide-head"><span id="rx-step">01 / ${STOPS.length}</span><h2 id="rx-title">${STOPS[0].title}</h2></div>
+  <div class="rx-guide-body" aria-live="polite"><p id="rx-text">${STOPS[0].text}</p><div id="rx-diagram" hidden></div></div>
+  <div class="rx-guide-nav">
+    <button id="rx-prev" type="button">Previous</button>
+    <button id="rx-play" type="button" aria-pressed="true">Pause tour</button>
+    <button id="rx-next" type="button">Next</button>
+    <span class="rx-track" aria-hidden="true"><span id="rx-progress"></span></span>
+    <button id="rx-all" type="button">Show all</button>
+  </div>
+  <ul class="rx-chips">${STOPS.map((stop, i) => `<li><button class="rx-chip" type="button" aria-current="${i ? "false" : "step"}"><span>${String(i + 1).padStart(2, "0")}</span>${stop.title.split(" · ")[0].split(":")[0]}</button></li>`).join("")}</ul>
+</section>`;
+
 const body =
   css +
   k.plateHtml({
     fig: "Fig 1",
     title: "Rydberg receiver",
-    hint: "Hover or use the slider · click to open",
+    hint: "Follow the tour below, or pick a part",
     readout: "E 0.30 V/m · Δ 2.3 MHz (merged)",
     keys: [
       { mark: "lit", label: "Cesium vapor cell: the antenna. Two lasers excite its atoms to a Rydberg state" },
@@ -553,7 +749,7 @@ const body =
       { mark: "flat", label: "Fiber: carries both beams up to the cell and the probe light back" },
     ],
     caption: `There is no metal antenna. The head holds a glass cell of cesium vapor between two collimators on dielectric rods. The probe laser makes the cell transparent at one coupling-laser frequency (EIT), which shows as the single peak on the screen. An RF field tuned to a Rydberg transition splits that peak in two (Autler–Townes). The splitting is set only by the field and an atomic constant: Δ = (λc/λp)·℘E/h, or ${MODEL.perVm.toFixed(2)} MHz per V/m for an assumed ℘ = ${MODEL.dipole} e·a₀. Below about ${(MODEL.width / MODEL.perVm).toFixed(1)} V/m the two peaks merge into one within the ${MODEL.width} MHz linewidth.`,
-    body: `<div class="iso-stage" tabindex="0" role="slider" aria-label="Rydberg receiver: arrow keys set the RF field, Enter opens the case" aria-valuemin="0" aria-valuemax="${MODEL.maxField}" aria-valuenow="0.3">${svg}</div>${controls}`,
+    body: `<div class="iso-stage" tabindex="0" role="slider" aria-label="Rydberg receiver: arrow keys set the RF field, Enter opens the case" aria-valuemin="0" aria-valuemax="${MODEL.maxField}" aria-valuenow="0.3">${svg}</div>${controls}${guideHtml}`,
   });
 
 const name = theme === "light" ? "rydberg-receiver-light.html" : "rydberg-receiver.html";
