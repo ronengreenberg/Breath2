@@ -433,11 +433,14 @@ const lcdSplit = svg.querySelector('[data-part="lcd-split"]');
 const beam = svg.querySelector('[data-part="beam"]');
 const covers = ["cover-back", "cover-right", "lid"].map((name) => svg.querySelector('[data-part="' + name + '"]'));
 const readout = document.querySelector("[data-readout]");
+const slider = document.getElementById("rx-field");
+const sliderOut = document.getElementById("rx-field-out");
+const toggle = document.getElementById("rx-open");
 const still = matchMedia("(prefers-reduced-motion: reduce)");
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const TOUR = [[0.3, 0], [1.6, 0], [3.2, 0], [3.2, 1], [1.0, 1], [0.3, 0]];
 let field = TOUR[0][0], fieldTarget = field, open = 0, openTarget = 0, lift = { at: 0, rate: 0 };
-let frame = 0, last = 0, clock = 0, touring = true, visible = false, idleTimer = 0;
+let frame = 0, last = 0, clock = 0, touring = true, visible = true, idleTimer = 0;
 function draw() {
   trace.setAttribute("d", traceOf(field));
   const split = splitOf(field);
@@ -449,6 +452,9 @@ function draw() {
   const resolved = split > MODEL.width;
   const text = "E " + field.toFixed(2) + " V/m · Δ " + split.toFixed(1) + " MHz" + (resolved ? "" : " (merged)");
   if (readout.textContent !== text) readout.textContent = text;
+  if (slider && document.activeElement !== slider) slider.value = field.toFixed(2);
+  if (sliderOut) sliderOut.textContent = field.toFixed(2) + " V/m";
+  if (toggle) { toggle.textContent = openTarget ? "Close the case" : "Open the case"; toggle.setAttribute("aria-pressed", openTarget ? "true" : "false"); }
   stage.setAttribute("aria-valuenow", field.toFixed(2));
   stage.setAttribute("aria-valuetext", text);
 }
@@ -478,10 +484,14 @@ const steer = (value) => { fieldTarget = clamp(value, 0, MODEL.maxField); hold()
 new IntersectionObserver((entries) => { visible = entries[entries.length - 1].isIntersecting; if (visible) run(); }, { rootMargin: "120px 0px" }).observe(stage);
 if (still.matches) touring = false;
 stage.addEventListener("pointermove", (event) => {
+  if (event.pointerType !== "mouse") return;
   const box = svg.getBoundingClientRect();
   steer(clamp(((event.clientX - box.left) / box.width - 0.15) / 0.7, 0, 1) * MODEL.maxField);
 });
-stage.addEventListener("click", () => { openTarget = openTarget ? 0 : 1; hold(); });
+const flip = () => { openTarget = openTarget ? 0 : 1; hold(); draw(); };
+stage.addEventListener("click", flip);
+if (toggle) toggle.addEventListener("click", flip);
+if (slider) slider.addEventListener("input", () => steer(parseFloat(slider.value)));
 stage.addEventListener("keydown", (event) => {
   let to = null;
   if (event.key === "ArrowRight" || event.key === "ArrowUp") to = fieldTarget + 0.2;
@@ -511,14 +521,31 @@ const css = `<style>
 .rx-jacket .tb-shade{fill:var(--rx-jacket-shade)}
 .rx-fiber .tb-body{fill:var(--rx-jacket)}
 .rx-boot .iso-top,.rx-boot .iso-fill{fill:var(--rx-jacket)}
+.rx-controls{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:14px 4px 2px;font:12px/1.4 var(--anatomy-mono);color:var(--anatomy-text)}
+.rx-field{display:flex;align-items:center;gap:10px;flex:1 1 260px;min-width:0}
+.rx-field span{letter-spacing:.08em;text-transform:uppercase;color:var(--anatomy-muted)}
+.rx-field input{flex:1;min-width:0;accent-color:var(--rx-beam)}
+.rx-field output{min-width:7ch;text-align:right;color:var(--anatomy-strong);font-variant-numeric:tabular-nums}
+#rx-open{font:inherit;letter-spacing:.06em;text-transform:uppercase;color:var(--anatomy-strong);background:var(--anatomy-face);border:1px solid var(--anatomy-mid);border-radius:6px;padding:8px 14px;cursor:pointer}
+#rx-open:hover{border-color:var(--anatomy-hi)}
+#rx-open:focus-visible,.rx-field input:focus-visible,.iso-stage:focus-visible{outline:2px solid var(--rx-beam);outline-offset:2px}
+#rx-open[aria-pressed="true"]{background:var(--anatomy-top);border-color:var(--anatomy-hi)}
+.iso-stage{touch-action:pan-y;cursor:pointer}
 </style>`;
+
+const controls = `<div class="rx-controls">
+  <label class="rx-field" for="rx-field"><span>RF field</span>
+    <input id="rx-field" type="range" min="0" max="${MODEL.maxField}" step="0.05" value="0.3">
+    <output id="rx-field-out" for="rx-field">0.30 V/m</output></label>
+  <button id="rx-open" type="button" aria-pressed="false">Open the case</button>
+</div>`;
 
 const body =
   css +
   k.plateHtml({
     fig: "Fig 1",
     title: "Rydberg receiver",
-    hint: "Hover sets the field · click opens the case",
+    hint: "Hover or use the slider · click to open",
     readout: "E 0.30 V/m · Δ 2.3 MHz (merged)",
     keys: [
       { mark: "lit", label: "Cesium vapor cell: the antenna. Two lasers excite its atoms to a Rydberg state" },
@@ -526,9 +553,41 @@ const body =
       { mark: "flat", label: "Fiber: carries both beams up to the cell and the probe light back" },
     ],
     caption: `There is no metal antenna. The head holds a glass cell of cesium vapor between two collimators on dielectric rods. The probe laser makes the cell transparent at one coupling-laser frequency (EIT), which shows as the single peak on the screen. An RF field tuned to a Rydberg transition splits that peak in two (Autler–Townes). The splitting is set only by the field and an atomic constant: Δ = (λc/λp)·℘E/h, or ${MODEL.perVm.toFixed(2)} MHz per V/m for an assumed ℘ = ${MODEL.dipole} e·a₀. Below about ${(MODEL.width / MODEL.perVm).toFixed(1)} V/m the two peaks merge into one within the ${MODEL.width} MHz linewidth.`,
-    body: `<div class="iso-stage" tabindex="0" role="slider" aria-label="Rydberg receiver: arrow keys set the RF field, Enter opens the case" aria-valuemin="0" aria-valuemax="${MODEL.maxField}" aria-valuenow="0.3">${svg}</div>`,
+    body: `<div class="iso-stage" tabindex="0" role="slider" aria-label="Rydberg receiver: arrow keys set the RF field, Enter opens the case" aria-valuemin="0" aria-valuemax="${MODEL.maxField}" aria-valuenow="0.3">${svg}</div>${controls}`,
   });
 
 const name = theme === "light" ? "rydberg-receiver-light.html" : "rydberg-receiver.html";
 writeFileSync(join(HERE, name), k.pageHtml({ title: "Rydberg receiver", theme, body, script: kitScript() + live }));
+
+// A fragment for a claude.ai artifact: the host supplies the document skeleton and the viewer's theme.
+if (theme === "light") {
+  const themeScript = `
+const root = document.getElementById("rx-root");
+const dark = matchMedia("(prefers-color-scheme: dark)");
+const applyTheme = () => {
+  const chosen = document.documentElement.getAttribute("data-theme");
+  root.setAttribute("data-theme", chosen === "dark" || chosen === "light" ? chosen : dark.matches ? "dark" : "light");
+};
+applyTheme();
+dark.addEventListener("change", applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+`;
+  const frame = `<title>Rydberg Receiver</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--page:#f2f2ef}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0b0b0b;color-scheme:dark}}
+:root[data-theme="dark"]{--page:#0b0b0b;color-scheme:dark}
+body{background:var(--page)}
+${k.ISO_CSS}
+*{box-sizing:border-box}
+#rx-root{min-height:100%;background:var(--anatomy-page);color:var(--anatomy-text);font:14px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding-block:40px 64px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+#rx-root .iso-page{width:min(720px,100%);margin:0 auto}
+</style>
+<main id="rx-root" class="iso" data-theme="light"><div class="iso-page">${body}</div></main>
+<script type="module">${(themeScript + kitScript() + live).replace(/<\/(script)/gi, "<\\/$1")}</script>
+`;
+  writeFileSync(join(HERE, "artifact.html"), frame);
+  console.log("wrote artifact.html");
+}
 console.log("wrote", name);
