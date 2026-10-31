@@ -829,27 +829,27 @@ ${k.ISO_CSS}
   // Video pages, light theme: "wide" is 16:9 (drawing left, words right), "tall" is 9:16 for phones (drawing above, words below).
   const videoCss = (tall) => `<style>
 html,body{margin:0;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;overflow:hidden;background:var(--anatomy-page)}
-.vid{position:relative;width:100%;height:100%;display:grid;${tall ? "grid-template-rows:auto 1fr" : "grid-template-columns:760px 1fr"};font:${tall ? 25 : 19}px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-strong);-webkit-font-smoothing:antialiased}
-.vid-stage{display:flex;align-items:center;justify-content:center;padding:${tall ? "40px 28px 8px" : "28px 0 28px 32px"}}
+.vid{position:relative;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;display:grid;${tall ? "grid-template-rows:auto 1fr" : "grid-template-columns:760px 1fr"};font:${tall ? 29 : 19}px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-strong);-webkit-font-smoothing:antialiased}
+.vid-stage{display:flex;align-items:center;justify-content:center;padding:${tall ? "64px 28px 12px" : "28px 0 28px 32px"}}
 .vid-stage .iso-stage{width:100%;border-radius:14px;background:var(--anatomy-card);box-shadow:0 1px 2px #0000000d,0 8px 24px -12px #0000001f}
 .vid-stage svg{display:block;width:100%;height:auto}
-.vid-panel{display:flex;flex-direction:column;gap:${tall ? 18 : 14}px;padding:${tall ? "22px 40px 44px" : "40px 44px 32px 36px"};min-width:0}
+.vid-panel{display:flex;flex-direction:column;gap:${tall ? 24 : 14}px;padding:${tall ? "30px 44px 64px" : "40px 44px 32px 36px"};min-width:0}
 .vid-brand{display:flex;align-items:baseline;gap:12px}
-.vid-brand b{font-size:${tall ? 34 : 26}px;letter-spacing:-.01em;font-weight:700;color:var(--anatomy-strong)}
+.vid-brand b{font-size:${tall ? 40 : 26}px;letter-spacing:-.01em;font-weight:700;color:var(--anatomy-strong)}
 .vid-brand span{font:${tall ? 15 : 12}px var(--anatomy-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--anatomy-muted)}
 .vid .rx-guide{border-top:0;margin:0;padding:0;gap:${tall ? 16 : 12}px}
 .vid .rx-guide-nav,.vid .rx-chips{display:none}
 .vid .rx-guide-body,.vid .rx-guide-body:has(#rx-diagram:not([hidden])){grid-template-columns:minmax(0,1fr)}
-.vid #rx-step{font-size:${tall ? 18 : 14}px;color:var(--anatomy-muted)}
-.vid #rx-title{font-size:${tall ? 40 : 30}px;letter-spacing:-.01em}
-.vid #rx-text{font-size:${tall ? 25 : 19}px;line-height:1.5;color:var(--anatomy-strong);max-width:none}
-.vid .rx-diagram{max-height:${tall ? 300 : 210}px;background:var(--anatomy-card)}
+.vid #rx-step{font-size:${tall ? 22 : 14}px;color:var(--anatomy-muted)}
+.vid #rx-title{font-size:${tall ? 48 : 30}px;letter-spacing:-.01em}
+.vid #rx-text{font-size:${tall ? 29 : 19}px;line-height:1.5;color:var(--anatomy-strong);max-width:none}
+.vid .rx-diagram{max-height:${tall ? 340 : 210}px;background:var(--anatomy-card)}
 .vid .rx-dg-label text,.vid .rx-dg-tag{font-size:11px}
 .vid .rx-hero .rx-guide-head{flex-direction:column;align-items:flex-start;gap:10px}
-.vid .rx-hero #rx-title{font-size:${tall ? 96 : 76}px;line-height:1}
-.vid .rx-hero #rx-text{font-size:${tall ? 30 : 23}px}
+.vid .rx-hero #rx-title{font-size:${tall ? 120 : 76}px;line-height:1}
+.vid .rx-hero #rx-text{font-size:${tall ? 36 : 23}px}
 .vid .rx-hero #rx-step{font-size:${tall ? 18 : 14}px;letter-spacing:.12em;text-transform:uppercase}
-.vid-read{margin-top:auto;font:${tall ? 18 : 14}px var(--anatomy-mono);color:var(--anatomy-muted);font-variant-numeric:tabular-nums}
+.vid-read{margin-top:auto;font:${tall ? 22 : 14}px var(--anatomy-mono);color:var(--anatomy-muted);font-variant-numeric:tabular-nums}
 .vid-hidden{position:absolute;left:-9999px;top:0}
 .vid-panel:has(.rx-hero) .vid-brand{display:none}
 </style>`;
