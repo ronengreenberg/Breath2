@@ -18,7 +18,8 @@ const STEP = 12; // seconds per tour stop, matches window.__STEP in the video pa
 const INTRO = 9; // parts fly in (5.4 s), then the complete product holds
 const STOPS = 16;
 const OUTRO = 11; // apart and back together (7.8 s), then the complete product holds
-const TOTAL = Math.min(limit, INTRO + STOPS * STEP + OUTRO);
+const SPEED = 1.25; // page seconds per video second
+const TOTAL = Math.min(limit, (INTRO + STOPS * STEP + OUTRO) / SPEED);
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: tall ? { width: 720, height: 1280 } : { width: 1280, height: 720 }, deviceScaleFactor: 1.5 });
@@ -49,13 +50,13 @@ const events = [
 ];
 let next = 0;
 for (let f = 0; f < frames; f++) {
-  const t = f / FPS;
+  const t = (f * SPEED) / FPS; // page time
   while (next < events.length && events[next].at <= t) await page.evaluate(events[next++].run);
-  await page.clock.runFor(1000 / FPS);
-  await page.evaluate((now) => window.__syncAnimations(now), (f + 1) * (1000 / FPS));
+  await page.clock.runFor((SPEED * 1000) / FPS);
+  await page.evaluate((now) => window.__syncAnimations(now), ((f + 1) * SPEED * 1000) / FPS);
   const jpg = await page.screenshot({ type: "jpeg", quality: 92 });
   if (!ffmpeg.stdin.write(jpg)) await new Promise((r) => ffmpeg.stdin.once("drain", r));
-  if (f % (FPS * 10) === 0) console.log(`${t.toFixed(0)} s / ${TOTAL} s`);
+  if (f % (FPS * 10) === 0) console.log(`${(f / FPS).toFixed(0)} s / ${TOTAL} s`);
 }
 ffmpeg.stdin.end();
 await new Promise((r) => ffmpeg.on("close", r));

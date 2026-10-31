@@ -537,7 +537,8 @@ function applyAssembly() {
 }
 let stop = 0, playing = !still.matches, guideClock = 0, sweepClock = 0, focused = true, eitPath = null, eitGap = null;
 // The camera: the viewBox eases toward the spotlit part, so the tour points by moving in on it.
-const FULL = { x: 0, y: 0, w: ${WIDTH}, h: ${HEIGHT} };
+// Video pages frame the product tightly, so it fills the card.
+const FULL = window.__TALL ? { x: 84, y: 38, w: 440, h: 440 * 640 / 688 } : window.__STEP ? { x: 94, y: 101, w: 420, h: 420 * ${HEIGHT} / ${WIDTH} } : { x: 0, y: 0, w: ${WIDTH}, h: ${HEIGHT} };
 const view = { ...FULL };
 function viewTarget() {
   if (!focused || !spot.firstChild) return FULL;
@@ -545,7 +546,7 @@ function viewTarget() {
   try { box = spot.getBBox(); } catch (error) { return FULL; }
   if (!box.width) return FULL;
   const aspect = FULL.w / FULL.h;
-  let w = Math.max(box.width * 1.9, box.height * 1.9 * aspect, FULL.w / 2.6);
+  let w = Math.max(box.width * 1.9, box.height * 1.9 * aspect, ${WIDTH} / 2.6);
   w = Math.min(w, FULL.w);
   const h = w / aspect;
   const x = clamp(box.x + box.width / 2 - w / 2, FULL.x - 10, FULL.x + FULL.w - w + 10);
@@ -889,11 +890,11 @@ ${k.ISO_CSS}
   // Video pages, light theme: "wide" is 16:9 (drawing left, words right), "tall" is 9:16 for phones (drawing above, words below).
   const videoCss = (tall) => `<style>
 html,body{margin:0;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;overflow:hidden;background:var(--anatomy-page)}
-.vid{position:relative;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;display:grid;${tall ? "grid-template-rows:auto 1fr" : "grid-template-columns:760px 1fr"};font:${tall ? 26 : 19}px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-strong);-webkit-font-smoothing:antialiased}
-.vid-stage{display:flex;align-items:center;justify-content:center;padding:${tall ? "44px 28px 8px" : "28px 0 28px 32px"}}
+.vid{position:relative;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;display:grid;${tall ? "grid-template-rows:auto 1fr" : "grid-template-columns:880px 1fr"};font:${tall ? 26 : 19}px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-strong);-webkit-font-smoothing:antialiased}
+.vid-stage{display:flex;align-items:center;justify-content:center;padding:${tall ? "28px 16px 8px" : "20px 0 20px 20px"}}
 .vid-stage .iso-stage{width:100%;border-radius:14px;background:var(--anatomy-card);box-shadow:0 1px 2px #0000000d,0 8px 24px -12px #0000001f}
-.vid-stage svg{display:block;width:100%;height:auto}
-.vid-panel{display:flex;flex-direction:column;gap:${tall ? 24 : 14}px;padding:${tall ? "30px 44px 64px" : "40px 44px 32px 36px"};min-width:0}
+.vid-stage svg{display:block;width:100%;height:${tall ? "640px" : "auto"}}
+.vid-panel{display:flex;flex-direction:column;gap:${tall ? 24 : 14}px;padding:${tall ? "30px 40px 64px" : "40px 36px 32px 32px"};min-width:0}
 .vid-brand{display:flex;align-items:baseline;gap:12px}
 .vid-brand b{font-size:${tall ? 40 : 26}px;letter-spacing:-.01em;font-weight:700;color:var(--anatomy-strong)}
 .vid-brand span{font:${tall ? 15 : 12}px var(--anatomy-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--anatomy-muted)}
@@ -901,14 +902,14 @@ html,body{margin:0;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;ov
 .vid .rx-guide-nav,.vid .rx-chips{display:none}
 .vid .rx-guide-body,.vid .rx-guide-body:has(#rx-diagram:not([hidden])){grid-template-columns:minmax(0,1fr)}
 .vid #rx-step{font-size:${tall ? 22 : 14}px;color:var(--anatomy-muted)}
-.vid #rx-title{font-size:${tall ? 44 : 30}px;letter-spacing:-.01em}
+.vid #rx-title{font-size:${tall ? 44 : 28}px;letter-spacing:-.01em}
 .vid #rx-text{font-size:${tall ? 26 : 19}px;line-height:1.5;color:var(--anatomy-strong);max-width:none}
 .vid .rx-diagram{max-height:${tall ? 262 : 210}px;background:var(--anatomy-card)}
 .vid .rx-dg-label text,.vid .rx-dg-tag{font-size:11px}
 .vid .rx-hero .rx-guide-head{flex-direction:column;align-items:flex-start;gap:10px}
-.vid .rx-hero #rx-title{font-size:${tall ? 120 : 76}px;line-height:1}
-.vid .rx-hero #rx-text{font-size:${tall ? 36 : 23}px}
-.vid .rx-hero #rx-step{font-size:${tall ? 18 : 14}px;letter-spacing:.12em;text-transform:uppercase}
+.vid .rx-hero #rx-title{font-size:${tall ? 120 : 68}px;line-height:1}
+.vid .rx-hero #rx-text{font-size:${tall ? 36 : 22}px}
+.vid .rx-hero #rx-step{font-size:${tall ? 18 : 12}px;letter-spacing:.08em;white-space:nowrap;text-transform:uppercase}
 .vid-read{margin-top:auto;font:${tall ? 22 : 14}px var(--anatomy-mono);color:var(--anatomy-muted);font-variant-numeric:tabular-nums}
 .vid-hidden{position:absolute;left:-9999px;top:0}
 .rx-launch{display:block;margin-top:${tall ? 22 : 16}px;font:${tall ? 17 : 13}px var(--anatomy-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--anatomy-muted)}
@@ -925,7 +926,7 @@ ${tall ? ".vid-brand,.vid-read{display:none}" : ""}
 <aside class="vid-panel"><div class="vid-brand"><b>PhyQ</b><span>Quantum RF receiver</span></div>${guideHtml}<div class="vid-read"><span data-readout></span></div></aside>
 <div class="vid-hidden">${controls}</div>
 </div>`,
-      script: "window.__STEP = 12;" + kitScript() + live,
+      script: "window.__STEP = 12;" + (tall ? "window.__TALL = true;" : "") + kitScript() + live,
     }).replace(".iso-page{width:min(1280px,100% - 32px);margin:64px auto 96px}", ".iso-page{margin:0}");
   writeFileSync(join(HERE, "video.html"), videoOf(false));
   writeFileSync(join(HERE, "video-tall.html"), videoOf(true));

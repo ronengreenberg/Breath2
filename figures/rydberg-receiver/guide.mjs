@@ -10,7 +10,7 @@ export const STOPS = [
     title: "Vapor cell: the antenna",
     show: ["cell"],
     field: 1.2,
-    text: "A sealed glass cylinder holding a trace of cesium vapor at room temperature. The atoms inside are the sensor: they respond to the RF field directly, so the head has no metal element to pick up or distort the signal. By tuning the coupling laser to a different Rydberg state, the same cell can listen from hundreds of megahertz to hundreds of gigahertz.",
+    text: "A sealed glass cell of cesium vapor. The atoms themselves are the antenna: no metal, from MHz to hundreds of GHz.",
   },
   {
     id: "atoms",
@@ -18,28 +18,28 @@ export const STOPS = [
     show: ["atoms"],
     field: 2.0,
     diagram: "ladder",
-    text: "The two lasers lift each cesium atom's outer electron in two steps: 852 nm from the ground state 6S to 6P, then 510 nm on to a Rydberg state with n ≈ 50. The orbit grows as n², so the atom swells to roughly a quarter of a micrometre, hundreds of times its normal size, with a huge electric dipole. An RF field tuned to the gap between two neighbouring Rydberg states couples to that dipole very strongly.",
+    text: "Two lasers lift each atom to a giant Rydberg state, hundreds of times its normal size and extremely sensitive to RF.",
   },
   {
     id: "head",
     title: "Metal-free head",
     show: ["head"],
     field: 1.2,
-    text: "Two dielectric collimators face each other through the cell, held by three ceramic tie rods. The probe enters at one end and the coupling beam at the other, so they cross the cell in opposite directions; that cancels most of the Doppler shift from the atoms' thermal motion. A dichroic in each collimator separates the probe light leaving the cell into its return fiber.",
+    text: "An all-dielectric head. The two beams cross the cell head-on, cancelling Doppler blur.",
   },
   {
     id: "stand",
     title: "Stand",
     show: ["stand"],
     field: 1.2,
-    text: "A weighted base, mast and clamp hold the head well above the bench, so reflections from the table and the receiver disturb the field as little as possible. The fibers enter at the bulkhead on the base and run up inside the hollow mast.",
+    text: "Holds the head high above the bench, away from reflections.",
   },
   {
     id: "fiber",
     title: "Fiber link",
     show: ["fiber"],
     field: 1.2,
-    text: "A jacketed bundle of single-mode fibers carries the probe and coupling light out to the head and brings the probe light back. Only light travels on it, so unlike a coax cable it picks up no RF and conducts no current to the head.",
+    text: "Carries only light to the head and back: no cable to pick up RF.",
   },
   {
     id: "probe",
@@ -47,7 +47,7 @@ export const STOPS = [
     show: ["probe"],
     open: true,
     field: 1.2,
-    text: "A narrow-linewidth diode laser locked to the cesium D2 line, driving 6S → 6P. Its transmission through the cell is the measurement: everything the receiver reports comes from how much probe light gets through.",
+    text: "852 nm laser locked to cesium. How much of it passes through the cell is the measurement.",
   },
   {
     id: "coupling",
@@ -55,7 +55,7 @@ export const STOPS = [
     show: ["coupling"],
     open: true,
     field: 1.2,
-    text: "A stronger green laser that drives 6P → nD, the Rydberg state. Sweeping its frequency across the resonance traces the spectrum on the screen. The fins on top carry heat away from its thermoelectric cooler, which holds the diode's wavelength steady.",
+    text: "510 nm laser that reaches the Rydberg state and sweeps the spectrum.",
   },
   {
     id: "launch",
@@ -63,7 +63,7 @@ export const STOPS = [
     show: ["launch"],
     open: true,
     field: 1.2,
-    text: "Collimators, isolators and a dichroic mirror that steer each laser into its fiber and keep reflections from feeding back into the diodes. The launcher on its face focuses the light into a fiber core a few micrometres across.",
+    text: "Steers each laser cleanly into its fiber.",
   },
   {
     id: "photodiode",
@@ -71,7 +71,7 @@ export const STOPS = [
     show: ["photodiode"],
     open: true,
     field: 1.2,
-    text: "Measures the probe light returning from the cell. When the vapor turns transparent the photocurrent rises. This small current is the raw signal the electronics digitise.",
+    text: "Measures the probe light returning from the cell.",
   },
   {
     id: "eit",
@@ -79,7 +79,7 @@ export const STOPS = [
     show: ["screen"],
     sweep: true,
     diagram: "eit",
-    text: `With only the probe on, cesium absorbs 852 nm light. Add the coupling laser and at exact resonance the atoms stop absorbing: electromagnetically induced transparency (EIT), the single peak. An RF field on a Rydberg transition splits that peak in two (Autler–Townes). The gap Δ grows in proportion to the field, ${perVm} MHz per V/m here, so the field is read in SI units from atomic constants, with no antenna calibration.`,
+    text: "The cell turns transparent: one peak. An RF field splits it in two, and the gap gives the field strength in SI units, with no calibration.",
   },
   {
     id: "electronics",
@@ -87,7 +87,7 @@ export const STOPS = [
     show: ["electronics"],
     open: true,
     field: 2.4,
-    text: "Analogue-to-digital converters sample the photodiode. An FPGA keeps both lasers locked, sweeps the coupling laser and fits the two peaks to find Δ and hence the field, many times a second. The shielded can holds the low-noise analogue stages. Results leave through the RF / DATA connector.",
+    text: "An FPGA locks the lasers and reads the field many times a second.",
   },
   {
     id: "psu",
@@ -95,14 +95,14 @@ export const STOPS = [
     show: ["psu"],
     open: true,
     field: 1.2,
-    text: "Turns the input from the POWER connector into the clean, low-noise rails the laser drivers, coolers and electronics need. It sits under the heat sink, which carries its heat out through the lid.",
+    text: "Clean, low-noise power for lasers and electronics.",
   },
   {
     id: "panel",
     title: "Front panel",
     show: ["panel"],
     field: 1.2,
-    text: "FIBER goes to the head. RF / DATA carries measurements and control. POWER feeds the unit. The LED shows when both lasers are locked.",
+    text: "Fiber, data and power connectors, plus a lock LED.",
   },
   {
     id: "cover",
@@ -110,7 +110,7 @@ export const STOPS = [
     show: ["cover"],
     open: true,
     field: 1.2,
-    text: "The cover slides back off the chassis for service. Its finned top spreads the heat of the laser coolers and the power supply into the room, which keeps the optics at a steady temperature.",
+    text: "Finned cover keeps the optics at a steady temperature.",
   },
   {
     id: "clock",
@@ -120,7 +120,7 @@ export const STOPS = [
     field: 0,
     lcd: "clock",
     diagram: "loop",
-    text: "The second instrument needs no new optics. The oscillator modulates the 852 nm probe laser at 4.596 GHz, so its two sidebands sit 9.193 GHz apart: exactly the splitting of cesium's ground state. When the gap matches, the atoms fall into a dark state and stop absorbing (coherent population trapping). The photodiode sees the cell clear, and the FPGA steers the oscillator to stay on that peak.",
+    text: "No new optics. Modulating the probe laser at 4.596 GHz locks the oscillator to cesium's 9.19 GHz resonance.",
   },
   {
     id: "second",
@@ -129,7 +129,7 @@ export const STOPS = [
     field: 0,
     lcd: "clock",
     diagram: "cpt",
-    text: "That splitting, 9 192 631 770 Hz, defines the SI second. Locked to it, the oscillator becomes an atomic clock with two outputs on the front panel: a 10 MHz reference and a 1 PPS timing pulse, accurate to 1 × 10⁻¹¹, under a microsecond of drift a day. The same cell, probe laser, photodiode and FPGA serve both instruments.",
+    text: "The result is an atomic clock: 10 MHz and 1 PPS outputs, accurate to 1 × 10⁻¹¹.",
   },
 ];
 
@@ -137,7 +137,7 @@ export const STOPS = [
 export const OVERVIEW = {
   title: "PhyQ",
   text: "Quantum receiver and atomic clock. Same hardware, same package.",
-  end: "Hear every signal. Keep perfect time. PhyQ puts a quantum receiver and an atomic clock in one compact package.",
+  end: "Hear every signal. Keep perfect time. One compact package.",
   launch: "Coming in 2027",
 };
 
