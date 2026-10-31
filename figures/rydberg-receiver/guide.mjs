@@ -136,7 +136,7 @@ export const STOPS = [
 // Opening and closing views: the whole product, closed, with nothing spotlit.
 export const OVERVIEW = {
   title: "PhyQ",
-  text: "One unit, two instruments: a quantum RF receiver whose antenna is a cell of cesium atoms, and an atomic clock built from the same parts, with 10 MHz and 1 PPS outputs.",
+  text: "Quantum receiver and atomic clock. Same hardware, same package.",
   end: "The atoms are the antenna and the clock: one cell of cesium, two instruments.",
 };
 
