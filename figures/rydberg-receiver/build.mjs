@@ -824,6 +824,7 @@ ${k.ISO_CSS}
 <script type="module">${(themeScript + kitScript() + live).replace(/<\/(script)/gi, "<\\/$1")}</script>
 `;
   writeFileSync(join(HERE, "artifact.html"), frame);
+  writeFileSync(join(HERE, "artifact-full.html"), `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${frame}</html>`);
 
   // Video pages, light theme: "wide" is 16:9 (drawing left, words right), "tall" is 9:16 for phones (drawing above, words below).
   const videoCss = (tall) => `<style>
