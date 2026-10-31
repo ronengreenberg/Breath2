@@ -137,7 +137,8 @@ export const STOPS = [
 export const OVERVIEW = {
   title: "PhyQ",
   text: "Quantum receiver and atomic clock. Same hardware, same package.",
-  end: "The atoms are the antenna and the clock: one cell of cesium, two instruments.",
+  end: "Hear every signal. Keep perfect time. PhyQ puts a quantum receiver and an atomic clock in one compact package.",
+  launch: "Coming in 2027",
 };
 
 // The clock loop: oscillator → modulated laser → cell → photodiode → FPGA servo → oscillator, with a signal travelling round it.

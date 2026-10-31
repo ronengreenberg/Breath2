@@ -45,7 +45,7 @@ const ffmpeg = spawn("ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", 
 const frames = Math.round(TOTAL * FPS);
 const events = [
   { at: INTRO, run: () => window.__tour.play() },
-  { at: INTRO + STOPS * STEP - 0.05, run: () => { window.__tour.overview(true); window.__tour.assemble("outin"); } },
+  { at: INTRO + STOPS * STEP - 0.4, run: () => { window.__tour.overview(true); window.__tour.assemble("outin"); } },
 ];
 let next = 0;
 for (let f = 0; f < frames; f++) {

@@ -614,9 +614,10 @@ function overview(end) {
   freeTouring = false;
   fieldTarget = 1.2;
   guide.root.classList.add("rx-hero");
-  guide.step.textContent = end ? "Two instruments" : "Quantum RF receiver · atomic clock";
+  guide.step.textContent = "Quantum RF receiver · atomic clock";
   guide.title.textContent = OVERVIEW.title;
   guide.text.textContent = end ? OVERVIEW.end : OVERVIEW.text;
+  if (end) { const note = document.createElement("small"); note.className = "rx-launch"; note.textContent = OVERVIEW.launch; guide.text.append(note); }
   draw();
   run();
 }
@@ -665,7 +666,7 @@ function tick(now) {
   const calm = still.matches;
   if (focused && playing) {
     guideClock += dt;
-    if (guideClock >= STEP_TIME) focusStop(stop + 1);
+    if (guideClock >= STEP_TIME) { if (window.__STEP && stop === STOPS.length - 1) overview(true); else focusStop(stop + 1); }
   }
   if (focused) {
     const item = STOPS[stop];
@@ -910,6 +911,7 @@ html,body{margin:0;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;ov
 .vid .rx-hero #rx-step{font-size:${tall ? 18 : 14}px;letter-spacing:.12em;text-transform:uppercase}
 .vid-read{margin-top:auto;font:${tall ? 22 : 14}px var(--anatomy-mono);color:var(--anatomy-muted);font-variant-numeric:tabular-nums}
 .vid-hidden{position:absolute;left:-9999px;top:0}
+.rx-launch{display:block;margin-top:${tall ? 22 : 16}px;font:${tall ? 17 : 13}px var(--anatomy-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--anatomy-muted)}
 .vid-panel:has(.rx-hero) .vid-brand{display:none}
 ${tall ? ".vid-brand,.vid-read{display:none}" : ""}
 </style>`;
