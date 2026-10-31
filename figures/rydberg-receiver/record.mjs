@@ -15,9 +15,9 @@ const limit = args.includes("--seconds") ? Number(args[args.indexOf("--seconds")
 
 const FPS = 30;
 const STEP = 12; // seconds per tour stop, matches window.__STEP in the video pages
-const INTRO = 6;
+const INTRO = 9; // parts fly in (5.4 s), then the complete product holds
 const STOPS = 16;
-const OUTRO = 7;
+const OUTRO = 11; // apart and back together (7.8 s), then the complete product holds
 const TOTAL = Math.min(limit, INTRO + STOPS * STEP + OUTRO);
 
 const browser = await chromium.launch();
@@ -28,6 +28,7 @@ await page.goto(pathToFileURL(join(HERE, tall ? "video-tall.html" : "video.html"
 await page.clock.pauseAt(1000);
 await page.evaluate(() => {
   window.__tour.overview(false);
+  window.__tour.assemble("in");
   // CSS animations and transitions follow the fake clock: each one is paused and set from its own birth time.
   const born = new WeakMap();
   window.__syncAnimations = (now) => {
@@ -44,7 +45,7 @@ const ffmpeg = spawn("ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", 
 const frames = Math.round(TOTAL * FPS);
 const events = [
   { at: INTRO, run: () => window.__tour.play() },
-  { at: INTRO + STOPS * STEP - 0.05, run: () => window.__tour.overview(true) },
+  { at: INTRO + STOPS * STEP - 0.05, run: () => { window.__tour.overview(true); window.__tour.assemble("outin"); } },
 ];
 let next = 0;
 for (let f = 0; f < frames; f++) {

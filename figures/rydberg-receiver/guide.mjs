@@ -124,24 +124,26 @@ export const STOPS = [
   },
   {
     id: "second",
-    title: "Locked to the cesium second",
-    show: [],
+    title: "10 MHz and 1 PPS outputs",
+    show: ["outputs"],
     field: 0,
     lcd: "clock",
     diagram: "cpt",
-    text: "That splitting, 9 192 631 770 Hz, is how the SI second is defined. Locked to it, the oscillator becomes an atomic clock: it keeps UTC through GPS outages, the holdover figure on the display, and steadies the receiver's own lasers and digitisers. The same cell, probe laser, photodiode and FPGA serve both instruments.",
+    text: "That splitting, 9 192 631 770 Hz, defines the SI second. Locked to it, the oscillator becomes an atomic clock with two outputs on the front panel: a 10 MHz reference and a 1 PPS timing pulse, accurate to 1 × 10⁻¹¹, under a microsecond of drift a day. The same cell, probe laser, photodiode and FPGA serve both instruments.",
   },
 ];
 
 // Opening and closing views: the whole product, closed, with nothing spotlit.
 export const OVERVIEW = {
   title: "PhyQ",
-  text: "One unit, two instruments: a quantum RF receiver whose antenna is a cell of cesium atoms, and an atomic clock built from the same parts.",
+  text: "One unit, two instruments: a quantum RF receiver whose antenna is a cell of cesium atoms, and an atomic clock built from the same parts, with 10 MHz and 1 PPS outputs.",
   end: "The atoms are the antenna and the clock: one cell of cesium, two instruments.",
 };
 
 // The clock loop: oscillator → modulated laser → cell → photodiode → FPGA servo → oscillator, with a signal travelling round it.
-export const LOOP = `<svg class="rx-diagram" viewBox="0 0 320 170" role="img" aria-label="Clock loop: the oscillator modulates the probe laser, the light crosses the vapor cell, the photodiode measures it, and the FPGA corrects the oscillator.">
+export const LOOP = `<svg class="rx-diagram" viewBox="0 -2 320 172" role="img" aria-label="Clock loop: the oscillator modulates the probe laser, the light crosses the vapor cell, the photodiode measures it, and the FPGA corrects the oscillator.">
+  <path class="rx-dg-out" d="M70 22V6"/><path class="rx-dg-out" d="M66 10L70 4L74 10"/>
+  <text class="rx-dg-tag rx-dg-out-t" x="80" y="13">10 MHz · 1 PPS out · 1 × 10⁻¹¹</text>
   <path class="rx-dg-loop" d="M70 40H250V130H70Z"/>
   <g class="rx-dg-box">
     <rect x="18" y="22" width="104" height="36" rx="6"/><rect x="198" y="22" width="104" height="36" rx="6"/>

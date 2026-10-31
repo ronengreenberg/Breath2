@@ -40,8 +40,9 @@ const BEZEL = { x0: -112, x1: -40, z0: 8, z1: 29, r: 2.4, depth: 1.2 };
 const LCD = { x0: -109.5, x1: -42.5, z0: 10.5, z1: 26.5, r: 1.2, depth: 1.4 };
 const PORT_Z = 18;
 const FIBER_X = -26;
-const RF_X = 2;
-const PWR_X = 30;
+const RF_X = -4;
+const PWR_X = 22;
+const OUT_X = [37, 47]; // BNC outputs: 10 MHz and 1 PPS
 
 // Sensor head on its mast.
 const STAND = [146, 34];
@@ -211,12 +212,14 @@ function internals() {
   const holes = [];
   for (let x = BOARD.x + 4; x < BOARD.x + BOARD.w - 2; x += 6) for (let y = BOARD.y + 4; y < BOARD.y + BOARD.d - 2; y += 6) holes.push(at([x, y, BOARD_TOP]));
   flatItems.push(D(holes, { size: 0.35, tone: "lo" }));
+  flatItems.unshift('<g data-asm="boards">');
   // electronics board on standoffs
   for (const [x, y] of byDepth(k.corners(PCB, 4))) flatItems.push(S(k.cylinder(x, y, 1.6, FLOOR, PCB_Z - FLOOR, P, 14), { tone: "mid" }));
   flatItems.push(T("electronics", S(k.slabOf(PCB, PCB_Z, PCB_TOP - PCB_Z, P, 3), { tone: "lo" }) + L(k.planOutline(k.insetPlan(PCB, 3), PCB_TOP, P, 3), { tone: "faint" })));
 
   const items = [];
-  const put = (centre, svg, part) => items.push({ key: depth(centre), svg: part ? T(part, svg) : svg });
+  let asm = 0;
+  const put = (centre, svg, part) => items.push({ key: depth(centre), svg: part ? `<g data-asm="${part === "fiber" ? "intfiber" : "int"}" data-i="${asm++}">${T(part, svg)}</g>` : svg });
 
   // probe laser, 852 nm
   const probe = { x: -108, y: -45, w: 30, d: 14, r: 2 };
@@ -269,6 +272,7 @@ function internals() {
   put([44, 2, 14], box(osc, PCB_TOP, 9, "mid", L(k.planOutline(k.insetPlan(osc, 3), PCB_TOP + 9, P, 3), { tone: "faint" }) + D(k.corners(osc, 2.2).map(([x, y]) => at([x, y, PCB_TOP + 9])), { size: 0.4 })), "clock");
   for (const [x, y] of [[-6, 4], [-1, 4], [4, 4], [26, -40], [26, -33]]) put([x, y, 12], S(k.cylinder(x, y, 2, PCB_TOP, 6, P, 18), { tone: "mid" }) + L(k.ring(x, y, 1.2, PCB_TOP + 6, P, 12), { tone: "faint" }), x > 20 ? "psu" : "electronics");
 
+  flatItems.push("</g>");
   items.sort((a, b) => a.key - b.key);
   return flatItems.join("") + items.map((item) => item.svg).join("");
 }
@@ -303,6 +307,17 @@ function circular(x, label, pins) {
   return out.join("");
 }
 
+function bnc(x) {
+  const F = alongY(x, FRONT, PORT_Z);
+  const hex = Array.from({ length: 6 }, (_, i) => [3.6 * Math.cos((i * Math.PI) / 3 + Math.PI / 6), 3.6 * Math.sin((i * Math.PI) / 3 + Math.PI / 6)]);
+  return [
+    S(G.prismOf(F, hex, 0, 1.4, P), { tone: "mid" }),
+    S(G.disc(1.4, 5.4, 2.5, F, P), { tone: "mid" }),
+    L(G.circleOf(F, 5.4, 1.5, P, 32), { tone: "lo" }),
+    D([at(G.pointOf(F, 5.4, 0, 0))], { size: 0.5, tone: "hi" }),
+  ].join("");
+}
+
 function fiberPort() {
   const F = alongY(FIBER_X, FRONT, PORT_Z);
   const out = [];
@@ -321,9 +336,10 @@ function panel() {
   out.push(T("fiber", fiberPort()));
   out.push(T("panel", circular(RF_X, "RF / DATA", 7)));
   out.push(T("panel", circular(PWR_X, "POWER", 4)));
+  // clock outputs: two BNC jacks, 10 MHz and 1 PPS
+  out.push(T("outputs", OUT_X.map((x) => bnc(x)).join("")));
   // status LED and its well
-  out.push(`<g transform="${planeOf(FRONT)}"><path class="iso-line" data-tone="lo" d="${flat(48, 15, 62, 21, 3)}"/></g>`);
-  out.push(T("panel", `<g data-part="led">${D([at([52, FRONT, 18])], { size: 0.9, tone: "hi" })}</g>` + D([at([58, FRONT, 18])], { size: 0.6, tone: "lo" })));
+  out.push(T("panel", `<g transform="${planeOf(FRONT)}"><path class="iso-line" data-tone="lo" d="${flat(55, 15, 65, 21, 3)}"/></g><g data-part="led">${D([at([58, FRONT, 18])], { size: 0.9, tone: "hi" })}</g>` + D([at([62, FRONT, 18])], { size: 0.6, tone: "lo" })));
   return out.join("");
 }
 
@@ -422,11 +438,11 @@ const svg = k.figureSvg({
     `<g data-part="cover-back" data-tour="cover" id="rx-cover-back" transform="">${coverBack()}</g>`,
     internals(),
     `<g data-part="cover-right" data-tour="cover" id="rx-cover-right" transform="">${coverRight()}</g>`,
-    panel(),
+    `<g data-asm="front">${panel()}</g>`,
     `<g data-part="lid" data-tour="cover" id="rx-cover-lid" transform="">${lid()}</g>`,
-    stand(),
-    head(),
-    cable(),
+    `<g data-asm="stand">${stand()}</g>`,
+    `<g data-asm="head">${head()}</g>`,
+    `<g data-asm="cable">${cable()}</g>`,
     `<rect class="rx-veil" x="-20" y="-20" width="${WIDTH + 40}" height="${HEIGHT + 40}"/>`,
     `<g class="rx-spot" aria-hidden="true"></g>`,
   ],
@@ -479,6 +495,46 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const FREE = [0.3, 1.6, 3.2, 1.0];
 let field = 0.3, fieldTarget = field, openTarget = 0, lift = { at: 0, rate: 0 };
 let frame = 0, last = 0, clock = 0, freeTouring = false, visible = true, idleTimer = 0;
+// Assembly: every part flies in from outside and settles into the complete product.
+const ASM = [
+  { sel: '[data-asm="boards"]', off: [0, 0, 45], d: 0, len: 1.2 },
+  { sel: '[data-asm="int"]', off: [0, 0, 80], d: 0.5, len: 1.0, spread: 1.7 },
+  { sel: '[data-asm="intfiber"]', fade: true, d: 2.3, len: 0.8 },
+  { sel: '[data-asm="front"]', off: [0, 90, 0], d: 2.5, len: 1.1 },
+  { sel: '[data-asm="stand"]', off: [70, 0, 0], d: 2.9, len: 1.0 },
+  { sel: '[data-asm="head"]', off: [0, 0, 70], d: 3.3, len: 1.0 },
+  { cover: true, off: [MOVE[0] * 1.6, MOVE[1] * 1.6, MOVE[2] * 1.6 + 60], d: 3.7, len: 1.2 },
+  { sel: '[data-asm="cable"]', fade: true, d: 4.5, len: 0.8 },
+];
+const ASM_END = 5.4, ASM_OUT = 2.4;
+ASM.forEach((entry) => { entry.els = entry.sel ? [...svg.querySelectorAll(entry.sel)] : []; });
+let asm = null;
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+function assemble(mode) { asm = { start: performance.now(), mode: mode || "in" }; openTarget = 0; Object.assign(view, FULL); run(); }
+function asmShare(entry, i, count) {
+  // 1 = fully away, 0 = in place
+  if (!asm) return 0;
+  let t = (performance.now() - asm.start) / 1000;
+  if (asm.mode === "outin") {
+    if (t < ASM_OUT) { const p = t / ASM_OUT; return p * p * (3 - 2 * p); }
+    t -= ASM_OUT;
+  }
+  const lag = entry.spread && count > 1 ? (entry.spread * i) / (count - 1) : 0;
+  return 1 - easeOut(clamp((t - entry.d - lag) / entry.len, 0, 1));
+}
+function applyAssembly() {
+  let coverOff = [0, 0, 0];
+  for (const entry of ASM) {
+    if (entry.cover) { const k = asmShare(entry, 0, 1); coverOff = entry.off.map((v) => v * k); continue; }
+    entry.els.forEach((el, i) => {
+      const k = asmShare(entry, i, entry.els.length);
+      if (entry.fade) el.style.opacity = asm ? String(1 - k) : "";
+      else el.setAttribute("transform", asm && k > 0 ? translateAlong(P, entry.off.map((v) => v * k)) : "");
+    });
+  }
+  if (asm && (performance.now() - asm.start) / 1000 > ASM_END + (asm.mode === "outin" ? ASM_OUT : 0) + 0.2) { asm = null; applyAssembly(); }
+  return coverOff;
+}
 let stop = 0, playing = !still.matches, guideClock = 0, sweepClock = 0, focused = true, eitPath = null, eitGap = null;
 // The camera: the viewBox eases toward the spotlit part, so the tour points by moving in on it.
 const FULL = { x: 0, y: 0, w: ${WIDTH}, h: ${HEIGHT} };
@@ -572,17 +628,18 @@ function draw() {
     const secs = 14 + performance.now() / 1000;
     lcdMode.textContent = "PhyQ · CLOCK · Cs 9.19 GHz";
     lcdE.textContent = "UTC 14:32:" + String(Math.floor(secs % 60)).padStart(2, "0") + "." + Math.floor((secs % 1) * 10);
-    lcdSplit.textContent = "LOCK 9 192 631 770 Hz";
+    lcdSplit.textContent = "10 MHz · 1PPS · 1E-11";
   } else {
     lcdMode.textContent = "PhyQ · EIT · Cs 852/510 nm";
     lcdE.textContent = "E " + field.toFixed(2) + " V/m";
     lcdSplit.textContent = "Δ " + split.toFixed(1) + " MHz";
   }
   beam.style.opacity = String(0.55 + 0.45 * Math.min(1, field / 3));
-  const t = translateAlong(P, MOVE.map((m) => m * lift.at));
+  const coverOff = applyAssembly();
+  const t = translateAlong(P, MOVE.map((m, i) => m * lift.at + coverOff[i]));
   covers.forEach((g) => g.setAttribute("transform", t));
   const resolved = split > MODEL.width;
-  const text = clockMode ? "Clock locked · 9 192 631 770 Hz" : "E " + field.toFixed(2) + " V/m · Δ " + split.toFixed(1) + " MHz" + (resolved ? "" : " (merged)");
+  const text = clockMode ? "Clock locked · 10 MHz · 1 PPS · 1 × 10⁻¹¹" : "E " + field.toFixed(2) + " V/m · Δ " + split.toFixed(1) + " MHz" + (resolved ? "" : " (merged)");
   if (readout.textContent !== text) readout.textContent = text;
   if (slider && document.activeElement !== slider) slider.value = field.toFixed(2);
   if (sliderOut) sliderOut.textContent = field.toFixed(2) + " V/m";
@@ -627,7 +684,7 @@ function tick(now) {
   if (Math.abs(want - lift.at) < 0.0005 && Math.abs(lift.rate) < 0.001) { lift.at = want; lift.rate = 0; }
   draw();
   const panning = moveCamera(dt, calm);
-  const animating = panning || (focused && playing) || freeTouring || (focused && (STOPS[stop].id === "atoms" || STOPS[stop].sweep || STOPS[stop].lcd) && !calm);
+  const animating = Boolean(asm) || panning || (focused && playing) || freeTouring || (focused && (STOPS[stop].id === "atoms" || STOPS[stop].sweep || STOPS[stop].lcd) && !calm);
   const settled = !animating && field === fieldTarget && lift.rate === 0 && lift.at === want;
   // frame is a flag, not the rAF id: an id of 0 would let run() start a second loop
   frame = visible && !settled ? (requestAnimationFrame(tick), 1) : 0;
@@ -674,7 +731,7 @@ stage.addEventListener("keydown", (event) => {
   steer(to);
 });
 focusStop(0);
-window.__tour = { focusStop, showAll, overview, play() { playing = true; focusStop(0); }, stops: STOPS.length };
+window.__tour = { focusStop, showAll, overview, assemble, play() { playing = true; focusStop(0); }, stops: STOPS.length };
 `;
 
 const css = `<style>
@@ -733,6 +790,8 @@ const css = `<style>
 .rx-dg-curve{fill:none;stroke:var(--rx-glow);stroke-width:2;stroke-linejoin:round}
 .rx-dg-gap path{fill:none;stroke:var(--anatomy-strong);stroke-width:1}
 .rx-dg-gap text{font:10px var(--anatomy-mono);fill:var(--anatomy-strong)}
+.iso[data-theme="light"]{--anatomy-hi:#0e0e10;--anatomy-mid:#2e2e33;--anatomy-lo:#5a5a60;--anatomy-faint:#8e8e95;--anatomy-dot:#1c1c1f;--anatomy-weight:.85px}
+.rx-dg-out{stroke:var(--rx-coupling);stroke-width:1.6;fill:none}.rx-dg-out-t{fill:var(--rx-coupling)}
 .rx-dg-center text{text-anchor:middle}
 .rx-dg-box rect{fill:var(--anatomy-card);stroke:var(--anatomy-mid);stroke-width:1.2}
 .rx-dg-loop{fill:none;stroke:var(--rx-glow);stroke-width:1.6;stroke-dasharray:4 4}
