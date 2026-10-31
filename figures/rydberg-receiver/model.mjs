@@ -44,3 +44,18 @@ export function traceOf(field) {
   }
   return points.join("");
 }
+
+// Clock mode: the CPT dark resonance, a narrow transmission peak as the sideband spacing is swept through 9.192 GHz.
+export function cptTraceOf() {
+  const { x0, x1, zBase, zPeak } = MODEL;
+  const points = [];
+  const count = 120;
+  for (let i = 0; i <= count; i++) {
+    const d = (i - count / 2) / 5;
+    const ripple = 0.02 * Math.sin(i * 2.1) + 0.015 * Math.sin(i * 5.3 + 2);
+    const x = x0 + ((x1 - x0) * i) / count;
+    const z = zBase + (zPeak - zBase) * (0.08 + 0.85 / (1 + d * d) + ripple);
+    points.push(`${i ? "L" : "M"}${x.toFixed(2)} ${(-z).toFixed(2)}`);
+  }
+  return points.join("");
+}

@@ -15,7 +15,7 @@ export const STOPS = [
   {
     id: "atoms",
     title: "Rydberg atoms",
-    show: ["cell", "atoms"],
+    show: ["atoms"],
     field: 2.0,
     diagram: "ladder",
     text: "The two lasers lift each cesium atom's outer electron in two steps: 852 nm from the ground state 6S to 6P, then 510 nm on to a Rydberg state with n ≈ 50. The orbit grows as n², so the atom swells to roughly a quarter of a micrometre, hundreds of times its normal size, with a huge electric dipole. An RF field tuned to the gap between two neighbouring Rydberg states couples to that dipole very strongly.",
@@ -23,7 +23,7 @@ export const STOPS = [
   {
     id: "head",
     title: "Metal-free head",
-    show: ["head", "cell"],
+    show: ["head"],
     field: 1.2,
     text: "Two dielectric collimators face each other through the cell, held by three ceramic tie rods. The probe enters at one end and the coupling beam at the other, so they cross the cell in opposite directions; that cancels most of the Doppler shift from the atoms' thermal motion. A dichroic in each collimator separates the probe light leaving the cell into its return fiber.",
   },
@@ -90,14 +90,6 @@ export const STOPS = [
     text: "Analogue-to-digital converters sample the photodiode. An FPGA keeps both lasers locked, sweeps the coupling laser and fits the two peaks to find Δ and hence the field, many times a second. The shielded can holds the low-noise analogue stages. Results leave through the RF / DATA connector.",
   },
   {
-    id: "clock",
-    title: "Holdover oscillator",
-    show: ["clock"],
-    open: true,
-    field: 1.2,
-    text: "The second instrument in the box: a disciplined oscillator that keeps UTC time when GPS is lost (the holdover figure on the display) and gives the lasers' locks and the digitisers a stable frequency reference.",
-  },
-  {
     id: "psu",
     title: "Power supply",
     show: ["psu"],
@@ -108,9 +100,9 @@ export const STOPS = [
   {
     id: "panel",
     title: "Front panel",
-    show: ["panel", "screen"],
+    show: ["panel"],
     field: 1.2,
-    text: "FIBER goes to the head. RF / DATA carries measurements and control. POWER feeds the unit. The LED shows when both lasers are locked, and the display shows the live spectrum, the field and the splitting.",
+    text: "FIBER goes to the head. RF / DATA carries measurements and control. POWER feeds the unit. The LED shows when both lasers are locked.",
   },
   {
     id: "cover",
@@ -120,7 +112,62 @@ export const STOPS = [
     field: 1.2,
     text: "The cover slides back off the chassis for service. Its finned top spreads the heat of the laser coolers and the power supply into the room, which keeps the optics at a steady temperature.",
   },
+  {
+    id: "clock",
+    title: "Atomic clock: same hardware",
+    show: ["clock"],
+    open: true,
+    field: 0,
+    lcd: "clock",
+    diagram: "loop",
+    text: "The second instrument needs no new optics. The oscillator modulates the 852 nm probe laser at 4.596 GHz, so its two sidebands sit 9.193 GHz apart: exactly the splitting of cesium's ground state. When the gap matches, the atoms fall into a dark state and stop absorbing (coherent population trapping). The photodiode sees the cell clear, and the FPGA steers the oscillator to stay on that peak.",
+  },
+  {
+    id: "second",
+    title: "Locked to the cesium second",
+    show: [],
+    field: 0,
+    lcd: "clock",
+    diagram: "cpt",
+    text: "That splitting, 9 192 631 770 Hz, is how the SI second is defined. Locked to it, the oscillator becomes an atomic clock: it keeps UTC through GPS outages, the holdover figure on the display, and steadies the receiver's own lasers and digitisers. The same cell, probe laser, photodiode and FPGA serve both instruments.",
+  },
 ];
+
+// Opening and closing views: the whole product, closed, with nothing spotlit.
+export const OVERVIEW = {
+  title: "PhyQ",
+  text: "One unit, two instruments: a quantum RF receiver whose antenna is a cell of cesium atoms, and an atomic clock built from the same parts.",
+  end: "The atoms are the antenna and the clock: one cell of cesium, two instruments.",
+};
+
+// The clock loop: oscillator → modulated laser → cell → photodiode → FPGA servo → oscillator, with a signal travelling round it.
+export const LOOP = `<svg class="rx-diagram" viewBox="0 0 320 170" role="img" aria-label="Clock loop: the oscillator modulates the probe laser, the light crosses the vapor cell, the photodiode measures it, and the FPGA corrects the oscillator.">
+  <path class="rx-dg-loop" d="M70 40H250V130H70Z"/>
+  <g class="rx-dg-box">
+    <rect x="18" y="22" width="104" height="36" rx="6"/><rect x="198" y="22" width="104" height="36" rx="6"/>
+    <rect x="198" y="112" width="104" height="36" rx="6"/><rect x="18" y="112" width="104" height="36" rx="6"/>
+  </g>
+  <g class="rx-dg-label rx-dg-center">
+    <text x="70" y="38">Oscillator</text><text x="70" y="51" class="rx-dg-note">4.596 GHz</text>
+    <text x="250" y="38">Probe laser</text><text x="250" y="51" class="rx-dg-note">modulated</text>
+    <text x="250" y="128">Vapor cell</text><text x="250" y="141" class="rx-dg-note">cesium atoms</text>
+    <text x="70" y="128">FPGA servo</text><text x="70" y="141" class="rx-dg-note">via photodiode</text>
+  </g>
+  <circle class="rx-dg-pulse" r="4.5"/>
+</svg>`;
+
+// The CPT resonance: transmission against the sideband spacing, peaked at the cesium hyperfine frequency.
+export const CPT = `<svg class="rx-diagram" viewBox="0 0 320 174" role="img" aria-label="Coherent population trapping resonance: transmission peaks when the sideband spacing equals 9 192 631 770 hertz, where the clock locks.">
+  <g class="rx-dg-axis"><path d="M30 138H300"/><path d="M30 138V20"/></g>
+  <path class="rx-dg-curve" d="${Array.from({ length: 161 }, (_, i) => { const x = 30 + (270 * i) / 160; const d = (x - 165) / 9; return `${i ? "L" : "M"}${x.toFixed(1)} ${(132 - 96 / (1 + d * d)).toFixed(1)}`; }).join("")}"/>
+  <path class="rx-dg-lock" d="M165 138V26"/>
+  <g class="rx-dg-label">
+    <text x="165" y="153" text-anchor="middle">9 192 631 770 Hz</text>
+    <text x="36" y="28">transmission</text>
+    <text x="300" y="168" text-anchor="end" class="rx-dg-note">sideband spacing →</text>
+  </g>
+  <text class="rx-dg-tag rx-dg-lock-t" x="172" y="40">lock</text>
+</svg>`;
 
 // Energy ladder for the Rydberg stop: levels, the two laser steps and the RF step, with an electron that climbs.
 export const LADDER = `<svg class="rx-diagram" viewBox="-16 0 336 168" role="img" aria-label="Energy levels of cesium: 852 nanometre probe from 6S to 6P, 510 nanometre coupling from 6P to the Rydberg state nD, and an RF photon between nD and the neighbouring Rydberg state (n+1)P.">

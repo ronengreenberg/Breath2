@@ -5,8 +5,8 @@ import * as k from "../../.claude/skills/anatomy/kit/iso-kit.mjs";
 import * as G from "../../.claude/skills/anatomy/kit/lathe.mjs";
 import { tubePieces, tubeSvg } from "../../.claude/skills/anatomy/kit/tube.mjs";
 import { kitScript } from "../../.claude/skills/anatomy/scripts/inline-kit.mjs";
-import { MODEL, traceOf, splitOf } from "./model.mjs";
-import { STOPS, LADDER, EIT, eitPlotOf } from "./guide.mjs";
+import { MODEL, traceOf, splitOf, cptTraceOf } from "./model.mjs";
+import { STOPS, LADDER, EIT, eitPlotOf, OVERVIEW, LOOP, CPT } from "./guide.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const theme = process.argv.includes("--light") ? "light" : "dark";
@@ -282,7 +282,7 @@ function screen() {
   const back = [
     `<path class="rx-grid" d="${grid.join("")}"/>`,
     `<path class="rx-trace" data-part="trace" d="${trace}"/>`,
-    `<text class="rx-text" x="${LCD.x0 + 2}" y="${-(LCD.z1 - 3.4)}" font-size="2.4">PhyQ · EIT · Cs 852/510 nm</text>`,
+    `<text class="rx-text" data-part="lcd-mode" x="${LCD.x0 + 2}" y="${-(LCD.z1 - 3.4)}" font-size="2.4">PhyQ · EIT · Cs 852/510 nm</text>`,
     `<circle class="rx-lock" cx="${LCD.x1 - 12.6}" cy="${-(LCD.z1 - 2.6)}" r="0.8"/>`,
     `<text class="rx-text" x="${LCD.x1 - 11.2}" y="${-(LCD.z1 - 3.4)}" font-size="2.4">LOCKED</text>`,
     `<text class="rx-text" data-part="lcd-e" x="${LCD.x0 + 2}" y="${-(LCD.z0 + 1.2)}" font-size="2.4">E 0.00 V/m</text>`,
@@ -439,6 +439,10 @@ const MOVE = ${JSON.stringify(MOVE)};
 const STOPS = ${JSON.stringify(STOPS)};
 const LADDER = ${JSON.stringify(LADDER)};
 const EIT = ${JSON.stringify(EIT)};
+const LOOP = ${JSON.stringify(LOOP)};
+const CPT = ${JSON.stringify(CPT)};
+const OVERVIEW = ${JSON.stringify(OVERVIEW)};
+const CPT_TRACE = ${JSON.stringify(cptTraceOf())};
 ${traceOf.toString()}
 ${splitOf.toString()}
 ${eitPlotOf.toString()}
@@ -448,6 +452,7 @@ const svg = stage.querySelector("svg");
 const trace = svg.querySelector('[data-part="trace"]');
 const lcdE = svg.querySelector('[data-part="lcd-e"]');
 const lcdSplit = svg.querySelector('[data-part="lcd-split"]');
+const lcdMode = svg.querySelector('[data-part="lcd-mode"]');
 const beam = svg.querySelector('[data-part="beam"]');
 const atoms = svg.querySelector(".rx-atoms");
 const spot = svg.querySelector(".rx-spot");
@@ -458,6 +463,7 @@ const sliderOut = document.getElementById("rx-field-out");
 const toggle = document.getElementById("rx-open");
 const guide = {
   step: document.getElementById("rx-step"),
+  root: document.querySelector(".rx-guide"),
   title: document.getElementById("rx-title"),
   text: document.getElementById("rx-text"),
   diagram: document.getElementById("rx-diagram"),
@@ -510,12 +516,14 @@ function focusStop(index) {
   freeTouring = false;
   guideClock = 0;
   sweepClock = 0;
-  stage.dataset.focus = item.id;
+  if (item.show.length) stage.dataset.focus = item.id;
+  else delete stage.dataset.focus;
+  guide.root.classList.remove("rx-hero");
   spot.innerHTML = item.show.flatMap((part) => [...svg.querySelectorAll('[data-tour="' + part + '"]')].map((el) => '<use href="#' + el.id + '"/>')).join("");
   guide.step.textContent = String(stop + 1).padStart(2, "0") + " / " + STOPS.length;
   guide.title.textContent = item.title;
   guide.text.textContent = item.text;
-  guide.diagram.innerHTML = item.diagram === "ladder" ? LADDER : item.diagram === "eit" ? EIT : "";
+  guide.diagram.innerHTML = ({ ladder: LADDER, eit: EIT, loop: LOOP, cpt: CPT })[item.diagram] || "";
   guide.diagram.hidden = !item.diagram;
   eitPath = guide.diagram.querySelector("#rx-eit-path");
   eitGap = guide.diagram.querySelector("#rx-eit-gap");
@@ -544,16 +552,37 @@ function showAll() {
   draw();
   run();
 }
+function overview(end) {
+  showAll();
+  openTarget = 0;
+  freeTouring = false;
+  fieldTarget = 1.2;
+  guide.root.classList.add("rx-hero");
+  guide.step.textContent = end ? "Two instruments" : "Quantum RF receiver · atomic clock";
+  guide.title.textContent = OVERVIEW.title;
+  guide.text.textContent = end ? OVERVIEW.end : OVERVIEW.text;
+  draw();
+  run();
+}
 function draw() {
-  trace.setAttribute("d", traceOf(field));
+  const clockMode = focused && STOPS[stop].lcd === "clock";
+  trace.setAttribute("d", clockMode ? CPT_TRACE : traceOf(field));
   const split = splitOf(field);
-  lcdE.textContent = "E " + field.toFixed(2) + " V/m";
-  lcdSplit.textContent = "Δ " + split.toFixed(1) + " MHz";
+  if (clockMode) {
+    const secs = 14 + performance.now() / 1000;
+    lcdMode.textContent = "PhyQ · CLOCK · Cs 9.19 GHz";
+    lcdE.textContent = "UTC 14:32:" + String(Math.floor(secs % 60)).padStart(2, "0") + "." + Math.floor((secs % 1) * 10);
+    lcdSplit.textContent = "LOCK 9 192 631 770 Hz";
+  } else {
+    lcdMode.textContent = "PhyQ · EIT · Cs 852/510 nm";
+    lcdE.textContent = "E " + field.toFixed(2) + " V/m";
+    lcdSplit.textContent = "Δ " + split.toFixed(1) + " MHz";
+  }
   beam.style.opacity = String(0.55 + 0.45 * Math.min(1, field / 3));
   const t = translateAlong(P, MOVE.map((m) => m * lift.at));
   covers.forEach((g) => g.setAttribute("transform", t));
   const resolved = split > MODEL.width;
-  const text = "E " + field.toFixed(2) + " V/m · Δ " + split.toFixed(1) + " MHz" + (resolved ? "" : " (merged)");
+  const text = clockMode ? "Clock locked · 9 192 631 770 Hz" : "E " + field.toFixed(2) + " V/m · Δ " + split.toFixed(1) + " MHz" + (resolved ? "" : " (merged)");
   if (readout.textContent !== text) readout.textContent = text;
   if (slider && document.activeElement !== slider) slider.value = field.toFixed(2);
   if (sliderOut) sliderOut.textContent = field.toFixed(2) + " V/m";
@@ -598,7 +627,7 @@ function tick(now) {
   if (Math.abs(want - lift.at) < 0.0005 && Math.abs(lift.rate) < 0.001) { lift.at = want; lift.rate = 0; }
   draw();
   const panning = moveCamera(dt, calm);
-  const animating = panning || (focused && playing) || freeTouring || (focused && (STOPS[stop].id === "atoms" || STOPS[stop].sweep) && !calm);
+  const animating = panning || (focused && playing) || freeTouring || (focused && (STOPS[stop].id === "atoms" || STOPS[stop].sweep || STOPS[stop].lcd) && !calm);
   const settled = !animating && field === fieldTarget && lift.rate === 0 && lift.at === want;
   // frame is a flag, not the rAF id: an id of 0 would let run() start a second loop
   frame = visible && !settled ? (requestAnimationFrame(tick), 1) : 0;
@@ -645,7 +674,7 @@ stage.addEventListener("keydown", (event) => {
   steer(to);
 });
 focusStop(0);
-window.__tour = { focusStop, showAll, play() { playing = true; focusStop(0); }, stops: STOPS.length };
+window.__tour = { focusStop, showAll, overview, play() { playing = true; focusStop(0); }, stops: STOPS.length };
 `;
 
 const css = `<style>
@@ -704,6 +733,15 @@ const css = `<style>
 .rx-dg-curve{fill:none;stroke:var(--rx-glow);stroke-width:2;stroke-linejoin:round}
 .rx-dg-gap path{fill:none;stroke:var(--anatomy-strong);stroke-width:1}
 .rx-dg-gap text{font:10px var(--anatomy-mono);fill:var(--anatomy-strong)}
+.rx-dg-center text{text-anchor:middle}
+.rx-dg-box rect{fill:var(--anatomy-card);stroke:var(--anatomy-mid);stroke-width:1.2}
+.rx-dg-loop{fill:none;stroke:var(--rx-glow);stroke-width:1.6;stroke-dasharray:4 4}
+.rx-dg-pulse{fill:var(--rx-glow);offset-path:path("M70 40H250V130H70Z");animation:rx-loop 4s linear infinite}
+@keyframes rx-loop{from{offset-distance:0%}to{offset-distance:100%}}
+.rx-dg-lock{stroke:var(--rx-coupling);stroke-width:1.4;stroke-dasharray:3 3;animation:rx-blink 1.4s ease-in-out infinite}
+.rx-dg-lock-t{fill:var(--rx-coupling)}
+@keyframes rx-blink{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.rx-dg-pulse,.rx-dg-lock{animation:none}}
 .rx-guide-nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .rx-guide-nav button,.rx-chip{font:12px/1.2 var(--anatomy-mono);letter-spacing:.04em;color:var(--anatomy-strong);background:var(--anatomy-face);border:1px solid var(--anatomy-lo);border-radius:6px;padding:8px 12px;cursor:pointer}
 .rx-guide-nav button:hover,.rx-chip:hover{border-color:var(--anatomy-hi)}
@@ -787,46 +825,48 @@ ${k.ISO_CSS}
 `;
   writeFileSync(join(HERE, "artifact.html"), frame);
 
-  // A 1280 × 720 page for the video: drawing on the left, the explanation on the right, title cards on top.
-  const videoCss = `<style>
-html,body{margin:0;width:1280px;height:720px;overflow:hidden;background:var(--anatomy-page)}
-.vid{position:relative;width:1280px;height:720px;display:grid;grid-template-columns:800px 1fr;font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-text);-webkit-font-smoothing:antialiased}
-.vid-stage{display:flex;align-items:center;justify-content:center;padding:24px 0 24px 28px}
-.vid-stage .iso-stage{width:100%;border-radius:10px;background:var(--anatomy-card)}
+  // Video pages, light theme: "wide" is 16:9 (drawing left, words right), "tall" is 9:16 for phones (drawing above, words below).
+  const videoCss = (tall) => `<style>
+html,body{margin:0;width:${tall ? 720 : 1280}px;height:${tall ? 1280 : 720}px;overflow:hidden;background:var(--anatomy-page)}
+.vid{position:relative;width:100%;height:100%;display:grid;${tall ? "grid-template-rows:auto 1fr" : "grid-template-columns:760px 1fr"};font:${tall ? 25 : 19}px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--anatomy-strong);-webkit-font-smoothing:antialiased}
+.vid-stage{display:flex;align-items:center;justify-content:center;padding:${tall ? "40px 28px 8px" : "28px 0 28px 32px"}}
+.vid-stage .iso-stage{width:100%;border-radius:14px;background:var(--anatomy-card);box-shadow:0 1px 2px #0000000d,0 8px 24px -12px #0000001f}
 .vid-stage svg{display:block;width:100%;height:auto}
-.vid-panel{display:flex;flex-direction:column;gap:14px;padding:34px 40px 28px 30px;min-width:0}
-.vid-brand{display:flex;align-items:baseline;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--anatomy-faint)}
-.vid-brand b{font-size:30px;letter-spacing:-.01em;color:var(--anatomy-strong);font-weight:700}
-.vid-brand span{font:12px var(--anatomy-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--anatomy-muted)}
-.vid .rx-guide{border-top:0;margin:0;padding:0;gap:12px}
+.vid-panel{display:flex;flex-direction:column;gap:${tall ? 18 : 14}px;padding:${tall ? "22px 40px 44px" : "40px 44px 32px 36px"};min-width:0}
+.vid-brand{display:flex;align-items:baseline;gap:12px}
+.vid-brand b{font-size:${tall ? 34 : 26}px;letter-spacing:-.01em;font-weight:700;color:var(--anatomy-strong)}
+.vid-brand span{font:${tall ? 15 : 12}px var(--anatomy-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--anatomy-muted)}
+.vid .rx-guide{border-top:0;margin:0;padding:0;gap:${tall ? 16 : 12}px}
+.vid .rx-guide-nav,.vid .rx-chips{display:none}
 .vid .rx-guide-body,.vid .rx-guide-body:has(#rx-diagram:not([hidden])){grid-template-columns:minmax(0,1fr)}
-.vid #rx-title{font-size:23px}
-.vid #rx-text{font-size:15.5px;line-height:1.55}
-.vid .rx-diagram{max-height:200px}
-.vid .rx-chips,.vid .rx-guide-nav button{display:none}
-.vid .rx-guide-nav{order:-1}
-.vid-read{margin-top:auto;font:13px var(--anatomy-mono);color:var(--anatomy-strong);font-variant-numeric:tabular-nums}
+.vid #rx-step{font-size:${tall ? 18 : 14}px;color:var(--anatomy-muted)}
+.vid #rx-title{font-size:${tall ? 40 : 30}px;letter-spacing:-.01em}
+.vid #rx-text{font-size:${tall ? 25 : 19}px;line-height:1.5;color:var(--anatomy-strong);max-width:none}
+.vid .rx-diagram{max-height:${tall ? 300 : 210}px;background:var(--anatomy-card)}
+.vid .rx-dg-label text,.vid .rx-dg-tag{font-size:11px}
+.vid .rx-hero .rx-guide-head{flex-direction:column;align-items:flex-start;gap:10px}
+.vid .rx-hero #rx-title{font-size:${tall ? 96 : 76}px;line-height:1}
+.vid .rx-hero #rx-text{font-size:${tall ? 30 : 23}px}
+.vid .rx-hero #rx-step{font-size:${tall ? 18 : 14}px;letter-spacing:.12em;text-transform:uppercase}
+.vid-read{margin-top:auto;font:${tall ? 18 : 14}px var(--anatomy-mono);color:var(--anatomy-muted);font-variant-numeric:tabular-nums}
 .vid-hidden{position:absolute;left:-9999px;top:0}
-.vid-card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:color-mix(in srgb,var(--anatomy-page) 86%,transparent);opacity:0;transition:opacity .8s ease;pointer-events:none;text-align:center}
-.vid-card.on{opacity:1}
-.vid-card h1{margin:0;font-size:96px;line-height:1;letter-spacing:-.02em;color:var(--anatomy-strong)}
-.vid-card p{margin:0;font:15px var(--anatomy-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--anatomy-text)}
-.vid-card em{font-style:normal;color:var(--rx-glow)}
+.vid-panel:has(.rx-hero) .vid-brand{display:none}
 </style>`;
-  const video = k.pageHtml({
-    title: "PhyQ video",
-    theme: "dark",
-    width: 1280,
-    body: `${css}${videoCss}<div class="vid">
+  const videoOf = (tall) =>
+    k.pageHtml({
+      title: "PhyQ video",
+      theme: "light",
+      width: 1280,
+      body: `${css}${videoCss(tall)}<div class="vid">
 <div class="vid-stage"><div class="iso-stage" tabindex="0">${svg}</div></div>
 <aside class="vid-panel"><div class="vid-brand"><b>PhyQ</b><span>Quantum RF receiver</span></div>${guideHtml}<div class="vid-read"><span data-readout></span></div></aside>
 <div class="vid-hidden">${controls}</div>
-<div class="vid-card on" id="vid-card"><h1>PhyQ</h1><p>Quantum RF receiver · <em>Rydberg-atom antenna</em></p><p id="vid-sub">One unit. Two instruments.</p></div>
 </div>`,
-    script: "window.__STEP = 10;" + kitScript() + live,
-  }).replace('.iso-page{width:min(1280px,100% - 32px);margin:64px auto 96px}', ".iso-page{margin:0}");
-  writeFileSync(join(HERE, "video.html"), video);
-  console.log("wrote video.html");
+      script: "window.__STEP = 12;" + kitScript() + live,
+    }).replace(".iso-page{width:min(1280px,100% - 32px);margin:64px auto 96px}", ".iso-page{margin:0}");
+  writeFileSync(join(HERE, "video.html"), videoOf(false));
+  writeFileSync(join(HERE, "video-tall.html"), videoOf(true));
+  console.log("wrote video.html, video-tall.html");
   console.log("wrote artifact.html");
 }
 console.log("wrote", name);
