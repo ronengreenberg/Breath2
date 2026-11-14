@@ -39,7 +39,7 @@ header.top.scrolled{border-bottom-color:var(--line)}
 .brand b{font-weight:500;letter-spacing:.08em}
 .brand span{color:var(--ink3);font-size:13px}
 .brand .dot{flex:none}
-@media (max-width:640px){.brand span{display:none}.sec-head{flex-direction:column;gap:4px}.pill{font-size:11px;padding:4px 9px}}
+@media (max-width:640px){.brand span,#pTime{display:none}.sec-head{flex-direction:column;gap:4px}.pill{font-size:11px;padding:4px 9px}}
 .pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .pill{font-size:12px;color:var(--ink2);border:1px solid var(--line);border-radius:99px;padding:5px 11px;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.02);white-space:nowrap}
 .pill i{width:6px;height:6px;border-radius:50%;background:var(--ink3)}
@@ -143,6 +143,34 @@ main{max-width:1180px;margin:0 auto;padding:0 clamp(16px,4vw,40px) 80px}
 .groupt:first-of-type{margin-top:0}
 footer{color:var(--ink3);font-size:12px;line-height:1.7;text-align:center;max-width:720px;margin:56px auto 0}
 
+/* ---------- market context ---------- */
+.ctx{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 48px}
+@media (max-width:760px){.ctx{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{border:1px solid var(--line);border-radius:16px;padding:12px 14px;background:var(--card);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.tile .l{font-size:12px;color:var(--ink3)}
+.tile .v{font-size:16px;font-weight:400}
+.tile .c{font-size:12.5px;text-align:left}
+.tile svg{grid-column:1/-1;width:100%;height:26px;margin-top:6px;display:block}
+
+/* ---------- backtest ---------- */
+.bt{margin-top:64px}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+@media (max-width:860px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi:last-child{grid-column:1/-1}}
+.kpi{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--card)}
+.kpi span{display:block;font-size:12px;color:var(--ink3);margin-bottom:6px}
+.kpi b{font-size:24px;font-weight:300}
+.kpi small{display:block;font-size:11.5px;color:var(--ink3);margin-top:4px}
+.chart{margin-top:12px;border:1px solid var(--line);border-radius:var(--r);padding:18px 18px 10px;background:var(--card);position:relative}
+.chart svg{width:100%;height:150px;display:block;direction:ltr}
+.chart .axis{display:flex;justify-content:space-between;direction:ltr;font-size:11px;color:var(--ink3);margin-top:6px}
+.chart .tip{position:absolute;pointer-events:none;font-size:12px;background:rgba(14,16,22,.95);border:1px solid var(--line2);border-radius:10px;padding:6px 10px;white-space:nowrap;opacity:0;transition:opacity .15s;transform:translate(-50%,-110%)}
+.trades{margin-top:12px}
+.trades .row{grid-template-columns:92px 70px 70px 1fr 90px 70px}
+@media (max-width:760px){.trades .row{grid-template-columns:84px 60px 1fr 60px}}
+.note{font-size:12.5px;color:var(--ink3);line-height:1.7;margin-top:12px}
+.tag{font-size:11.5px;border-radius:99px;padding:2px 8px;border:1px solid var(--line)}
+.tag.target{color:var(--up);border-color:rgba(95,227,168,.3)}.tag.stop{color:var(--down);border-color:rgba(255,122,138,.3)}
+
 /* skeleton */
 .skel .card{min-height:420px}
 .skel .card::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);animation:sh 1.8s infinite}
@@ -171,12 +199,21 @@ footer{color:var(--ink3);font-size:12px;line-height:1.7;text-align:center;max-wi
   </section>
 
   <main>
+    <div class="ctx" id="ctx"></div>
     <div class="sec-head"><h2>המומלצות למסחר תוך־יומי</h2><small id="updated"></small></div>
     <div class="grid skel" id="top"><div class="card in"></div><div class="card in"></div><div class="card in"></div></div>
 
     <section class="watch">
       <div class="sec-head"><h2>ברשימת המעקב</h2><small>מועמדות נוספות, לפי ציון</small></div>
       <div class="rows" id="watch"></div>
+    </section>
+
+    <section class="bt">
+      <div class="sec-head"><h2>ביצועי העבר</h2><small id="btSub">מריץ סימולציה על ימי מסחר קודמים…</small></div>
+      <div class="kpis" id="kpis"></div>
+      <div class="chart" id="btChart"></div>
+      <div class="rows trades" id="trades"></div>
+      <p class="note" id="btNote"></p>
     </section>
 
     <section class="method">
@@ -303,7 +340,7 @@ async function load() {
     return await r.json();
   } catch {
     const now = Date.now();
-    return { mode: "demo", generatedAt: new Date(now).toISOString(), clock: engine.marketClock(now), sources: [], ...engine.analyzeMarket(engine.demoMarket(now), now) };
+    return { mode: "demo", generatedAt: new Date(now).toISOString(), clock: engine.marketClock(now), sources: [], context: engine.demoContext(now), ...engine.analyzeMarket(engine.demoMarket(now), now) };
   }
 }
 
@@ -391,8 +428,82 @@ function render(d) {
   $("pTime").querySelector("span").textContent = "עודכן " + t.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" });
   $("updated").textContent = st === "open" ? "מתעדכן אוטומטית כל דקה" : "מבוסס על יום המסחר האחרון";
 
+  $("ctx").innerHTML = (d.context || []).map((c) => {
+    const vix = c.symbol === "^VIX", good = vix ? c.changePct <= 0 : c.changePct >= 0;
+    return `<div class="tile"><span class="l">${esc(c.label)}</span><span class="c num ${good ? "up" : "down"}">${pct(c.changePct)}</span>
+      <span class="v num">${vix ? fmt(c.price) : "$" + fmt(c.price)}</span><span></span>${miniLine(c.spark, good)}</div>`;
+  }).join("");
+
   const all = d.top.concat(d.watch);
   cloud.setMood(all.length ? all.reduce((s, a) => s + Math.sign(a.changePct) * Math.min(1, Math.abs(a.changePct) / 2), 0) / all.length : 0);
+}
+
+function miniLine(arr, good) {
+  if (!arr || arr.length < 2) return "";
+  const w = 200, h = 26, min = Math.min(...arr), max = Math.max(...arr), sp = max - min || 1;
+  const d = arr.map((v, i) => (i ? "L" : "M") + ((i / (arr.length - 1)) * w).toFixed(1) + " " + (h - 2 - ((v - min) / sp) * (h - 4)).toFixed(1)).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="direction:ltr"><path d="${d}" fill="none" stroke="${good ? "var(--up)" : "var(--down)"}" stroke-opacity=".8" stroke-width="1.3" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+/* ================= backtest ================= */
+async function loadBacktest() {
+  try {
+    const r = await fetch("/api/backtest?sessions=20", { cache: "no-store" });
+    if (!r.ok) throw 0;
+    return await r.json();
+  } catch {
+    await new Promise((ok) => setTimeout(ok, 50));
+    const now = Date.now();
+    return { mode: "demo", ...engine.backtest(engine.demoBacktestData(now, 22), { sessions: 20 }) };
+  }
+}
+
+function renderBacktest(b) {
+  const S = b.summary, sgn = (x) => (x > 0 ? "+" : "") + fmt(x, 2);
+  $("btSub").textContent = `${S.sessions} ימי מסחר אחרונים · ${S.trades} עסקאות${b.mode === "demo" ? " · נתוני הדגמה" : ""}`;
+  const k = (label, val, cls, sub) => `<div class="kpi"><span>${label}</span><b class="num ${cls || ""}">${val}</b>${sub ? `<small>${sub}</small>` : ""}</div>`;
+  $("kpis").innerHTML =
+    k("אחוז הצלחה", S.winRate + "%", "", `${S.targets} ביעד · ${S.stops} בסטופ`) +
+    k("R ממוצע לעסקה", sgn(S.avgR), S.avgR >= 0 ? "up" : "down", "R = יחידת סיכון") +
+    k("סה״כ R", sgn(S.totalR), S.totalR >= 0 ? "up" : "down", "סכום כל העסקאות") +
+    k("Profit Factor", S.profitFactor == null ? "—" : fmt(S.profitFactor, 2), "", "רווחים ÷ הפסדים") +
+    k("ירידה מקסימלית", "-" + fmt(S.maxDrawdownR, 2) + "R", "", "מהשיא לשפל");
+
+  // daily R bars + cumulative line
+  const D = b.daily, el = $("btChart");
+  if (!D.length) { el.innerHTML = ""; return; }
+  const W = 1000, H = 150, pad = 8, n = D.length, bw = (W - pad * 2) / n;
+  const maxAbs = Math.max(1, ...D.map((x) => Math.abs(x.R)));
+  let cum = 0; const C = D.map((x) => (cum += x.R));
+  const cMin = Math.min(0, ...C), cMax = Math.max(0, ...C), cSpan = cMax - cMin || 1;
+  const mid = H / 2, sc = (H / 2 - 10) / maxAbs;
+  const bars = D.map((x, i) => {
+    const h = Math.max(1.5, Math.abs(x.R) * sc), y = x.R >= 0 ? mid - h : mid;
+    return `<rect x="${(pad + i * bw + bw * 0.22).toFixed(1)}" y="${y.toFixed(1)}" width="${(bw * 0.56).toFixed(1)}" height="${h.toFixed(1)}" rx="2" fill="${x.R >= 0 ? "var(--up)" : "var(--down)"}" fill-opacity=".55" data-i="${i}"/>`;
+  }).join("");
+  const line = C.map((v, i) => (i ? "L" : "M") + (pad + i * bw + bw / 2).toFixed(1) + " " + (H - 8 - ((v - cMin) / cSpan) * (H - 16)).toFixed(1)).join("");
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="rgba(255,255,255,.12)" stroke-width="1" vector-effect="non-scaling-stroke"/>
+      ${bars}<path d="${line}" fill="none" stroke="url(#rg2)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      <defs><linearGradient id="rg2" x1="0" x2="1"><stop offset="0" stop-color="#8fb4ff"/><stop offset=".5" stop-color="#b69cff"/><stop offset="1" stop-color="#5fe3a8"/></linearGradient></defs>
+    </svg>
+    <div class="axis"><span>${D[0].date.slice(5)}</span><span>R יומי (עמודות) · R מצטבר (קו)</span><span>${D[n - 1].date.slice(5)}</span></div><div class="tip"></div>`;
+  const svg = el.querySelector("svg"), tip = el.querySelector(".tip");
+  svg.addEventListener("pointermove", (e) => {
+    const r = svg.getBoundingClientRect(), i = Math.max(0, Math.min(n - 1, Math.floor(((e.clientX - r.left) / r.width * W - pad) / bw)));
+    const day = b.trades.filter((t) => t.date === D[i].date).map((t) => `${t.symbol} ${sgn(t.R)}`).join(" · ");
+    tip.innerHTML = `<b class="num">${D[i].date}</b> · <span class="num ${D[i].R >= 0 ? "up" : "down"}">${sgn(D[i].R)}R</span><br><span class="num" style="color:var(--ink3)">${esc(day)}</span>`;
+    tip.style.left = (e.clientX - el.getBoundingClientRect().left) + "px"; tip.style.top = (e.clientY - el.getBoundingClientRect().top) + "px"; tip.style.opacity = 1;
+  });
+  svg.addEventListener("pointerleave", () => (tip.style.opacity = 0));
+
+  const O = { target: "יעד", stop: "סטופ", close: "סגירה" };
+  $("trades").innerHTML = `<div class="row h"><span>תאריך</span><span>סימול</span><span class="hide">כיוון</span><span class="hide">כניסה → יציאה</span><span>תוצאה</span><span>R</span></div>`
+    + b.trades.slice(0, 9).map((t) => `<div class="row"><span class="num">${t.date.slice(5)}</span><span class="s">${esc(t.symbol)}</span>
+      <span class="hide ${t.direction === "long" ? "up" : "down"}">${t.direction === "long" ? "לונג" : "שורט"}</span>
+      <span class="hide num" style="color:var(--ink2)">${fmt(t.entry)} → ${fmt(t.exit)}</span>
+      <span><span class="tag ${t.outcome}">${O[t.outcome]}</span></span><span class="num ${t.R >= 0 ? "up" : "down"}">${sgn(t.R)}</span></div>`).join("");
+  $("btNote").textContent = `איך זה נבדק: בכל יום מסחר המערכת "קפאה" ב־${S.decision} שעון ניו יורק, דירגה את כל המניות רק לפי הנתונים שהיו זמינים באותו רגע, ובחרה 3. כל עסקה נסגרה ביעד 1 (1.5R), בסטופ, או בסגירת המסחר; כשהיעד והסטופ נגעו באותו נר — נספר כסטופ. הסימולציה מבוססת מחיר ונפח בלבד (ללא חדשות וסנטימנט היסטוריים), ללא עמלות והחלקה. ביצועי עבר אינם מבטיחים תוצאות עתידיות.`;
 }
 
 async function tick() {
@@ -401,6 +512,7 @@ async function tick() {
   setTimeout(tick, d.clock.state === "open" ? 60_000 : 300_000);
 }
 tick();
+loadBacktest().then(renderBacktest);
 </script>
 </body>
 </html>

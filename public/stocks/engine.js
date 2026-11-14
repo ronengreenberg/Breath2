@@ -271,6 +271,127 @@ export function marketClock(now = Date.now()) {
   return { state, nyTime: `${get("hour")}:${get("minute")}`, weekday: wd };
 }
 
+/* ---------- New York calendar helpers ---------- */
+const NY_FMT = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+function nyParts(ms) {
+  const o = {};
+  for (const p of NY_FMT.formatToParts(new Date(ms))) o[p.type] = p.value;
+  return { y: +o.year, m: +o.month, d: +o.day, hh: +o.hour % 24, mm: +o.minute };
+}
+/** "YYYY-MM-DD" in New York time */
+export function nyDate(ms) {
+  const p = nyParts(ms);
+  return `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`;
+}
+/** minutes since midnight, New York time */
+export function nyMinutes(ms) { const p = nyParts(ms); return p.hh * 60 + p.mm; }
+/** epoch ms of 09:30 New York on the NY calendar day containing `ms` */
+export function nyOpen(ms) {
+  const p = nyParts(ms);
+  const guess = Date.UTC(p.y, p.m - 1, p.d, 9, 30);
+  const w = nyParts(guess);
+  const wall = Date.UTC(w.y, w.m - 1, w.d, w.hh, w.mm);
+  return guess + (guess - wall);
+}
+
+/** Group intraday bars into regular-hours sessions keyed by NY date (09:30–16:00). */
+export function splitSessions(bars) {
+  const map = new Map();
+  for (const b of bars) {
+    const m = nyMinutes(b.t);
+    if (m < 570 || m >= 960) continue;
+    const k = nyDate(b.t);
+    if (!map.has(k)) map.set(k, []);
+    map.get(k).push(b);
+  }
+  return map;
+}
+
+/** Market context tiles (index ETFs + VIX) from parsed intraday charts. */
+export function contextTile(symbol, label, parsed) {
+  if (!parsed || !parsed.bars.length) return null;
+  const last = parsed.bars[parsed.bars.length - 1].c;
+  const prev = parsed.meta.prevClose || parsed.bars[0].o;
+  return { symbol, label, price: round(last), changePct: round(((last - prev) / prev) * 100), spark: parsed.bars.map((b) => round(b.c)) };
+}
+export const CONTEXT = [["SPY", "S&P 500"], ["QQQ", "נאסד״ק 100"], ["IWM", "ראסל 2000"], ["^VIX", "VIX"]];
+
+/* ---------- backtest: replay the engine on past sessions ---------- */
+/**
+ * dataset[sym] = { daily: {bars, meta}, intra: {bars} }  (intra = several days of 5-minute bars)
+ * For every completed session: score all symbols with the data available at the decision time
+ * (default 10:00 NY, after the opening range), take the top 3, and simulate the plan until the close:
+ * stop first if both levels are touched in the same bar (conservative), else target 1 (1.5R), else exit at the close.
+ */
+export function backtest(dataset, { sessions = 20, decisionMin = 30, top = 3 } = {}) {
+  const per = {};
+  const dates = new Set();
+  for (const [sym, x] of Object.entries(dataset)) {
+    if (!x || !x.daily || !x.intra) continue;
+    per[sym] = splitSessions(x.intra.bars);
+    for (const [k, v] of per[sym]) if (v.length >= 70) dates.add(k); // completed sessions only
+  }
+  const days = [...dates].sort().slice(-sessions);
+  const k = Math.round(decisionMin / 5);
+  const trades = [], daily = [];
+
+  for (const date of days) {
+    const cands = [];
+    for (const [symbol, name] of UNIVERSE) {
+      const sess = per[symbol] && per[symbol].get(date);
+      if (!sess || sess.length < k + 6) continue;
+      const regStart = nyOpen(sess[0].t);
+      const hist = dataset[symbol].daily.bars.filter((b) => nyDate(b.t) < date);
+      const a = analyzeSymbol({
+        symbol, name,
+        daily: { bars: hist, meta: dataset[symbol].daily.meta },
+        intraday: { bars: sess.slice(0, k), meta: { regularStart: regStart, regularEnd: regStart + 390 * 60000 } },
+        now: regStart + decisionMin * 60000,
+      });
+      if (a) cands.push({ a, rest: sess.slice(k) });
+    }
+    cands.sort((x, y) => y.a.score - x.a.score);
+    let dayR = 0;
+    for (const { a, rest } of cands.slice(0, top)) {
+      const sign = a.direction === "long" ? 1 : -1;
+      const entry = a.price, risk = Math.abs(entry - a.plan.stop) || entry * 0.004;
+      const stop = entry - sign * risk, target = entry + sign * risk * 1.5;
+      let exit = rest[rest.length - 1].c, outcome = "close";
+      for (const b of rest) {
+        const hitStop = sign > 0 ? b.l <= stop : b.h >= stop;
+        const hitTgt = sign > 0 ? b.h >= target : b.l <= target;
+        if (hitStop) { exit = stop; outcome = "stop"; break; }
+        if (hitTgt) { exit = target; outcome = "target"; break; }
+      }
+      const R = round((sign * (exit - entry)) / risk, 2);
+      dayR += R;
+      trades.push({ date, symbol: a.symbol, direction: a.direction, score: a.score, entry: round(entry), exit: round(exit), R, outcome,
+        pnlPct: round(((sign * (exit - entry)) / entry) * 100, 2) });
+    }
+    if (cands.length) daily.push({ date, R: round(dayR, 2) });
+  }
+
+  const n = trades.length;
+  const wins = trades.filter((t) => t.R > 0), losses = trades.filter((t) => t.R <= 0);
+  const gw = wins.reduce((s, t) => s + t.R, 0), gl = -losses.reduce((s, t) => s + t.R, 0);
+  let eq = 0, peak = 0, maxDD = 0;
+  for (const d of daily) { eq += d.R; peak = Math.max(peak, eq); maxDD = Math.max(maxDD, peak - eq); }
+  return {
+    summary: {
+      sessions: daily.length, trades: n,
+      winRate: n ? round((wins.length / n) * 100, 0) : 0,
+      avgR: n ? round((gw - gl) / n, 2) : 0,
+      totalR: round(gw - gl, 2),
+      profitFactor: gl ? round(gw / gl, 2) : null,
+      targets: trades.filter((t) => t.outcome === "target").length,
+      stops: trades.filter((t) => t.outcome === "stop").length,
+      maxDrawdownR: round(maxDD, 2),
+      decision: `${String(9 + Math.floor((30 + decisionMin) / 60)).padStart(2, "0")}:${String((30 + decisionMin) % 60).padStart(2, "0")}`,
+    },
+    daily, trades: trades.slice().reverse(),
+  };
+}
+
 /* ---------- deterministic demo market (used when live sources are unreachable) ---------- */
 function prng(seed) {
   let s = seed >>> 0;
@@ -278,62 +399,112 @@ function prng(seed) {
 }
 function gauss(r) { return Math.sqrt(-2 * Math.log(r() + 1e-9)) * Math.cos(2 * Math.PI * r()); }
 
-export function demoMarket(now = Date.now()) {
-  const day = Math.floor(now / 864e5);
-  const BASE = { NVDA: 182, TSLA: 412, AMD: 238, AAPL: 268, META: 712, AMZN: 236, MSFT: 508, GOOGL: 281, PLTR: 178, COIN: 318,
-    MSTR: 302, SMCI: 44, AVGO: 352, MU: 236, NFLX: 1110, SOFI: 28, HOOD: 128, MARA: 17, RIVN: 14, UBER: 94, SHOP: 158,
-    ARM: 152, CRWD: 528, SNOW: 251, INTC: 37, BA: 198, DKNG: 31, RBLX: 118, AFRM: 71, NIO: 6.4 };
-  const VOL = { NVDA: 2.4e8, TSLA: 1e8, AMD: 5e7, AAPL: 5.5e7, META: 1.3e7, AMZN: 4.5e7, MSFT: 2e7, GOOGL: 3e7, PLTR: 6e7, COIN: 1e7,
-    MSTR: 1.2e7, SMCI: 3e7, AVGO: 2.2e7, MU: 2.5e7, NFLX: 4e6, SOFI: 7e7, HOOD: 3.5e7, MARA: 5e7, RIVN: 3.5e7, UBER: 2e7,
-    SHOP: 9e6, ARM: 6e6, CRWD: 3e6, SNOW: 5e6, INTC: 9e7, BA: 9e6, DKNG: 1e7, RBLX: 7e6, AFRM: 8e6, NIO: 6e7 };
-  const clock = marketClock(now);
-  const regStart = (() => { // today's 09:30 NY in epoch ms (approx via offset)
-    const ny = new Date(new Date(now).toLocaleString("en-US", { timeZone: "America/New_York" }));
-    const off = now - ny.getTime();
-    const d0 = new Date(ny); d0.setHours(9, 30, 0, 0);
-    return d0.getTime() + off;
-  })();
-  const minsIn = clock.state === "open" ? Math.floor((now - regStart) / 300000) + 1 : 78;
+const DEMO_BASE = { NVDA: 182, TSLA: 412, AMD: 238, AAPL: 268, META: 712, AMZN: 236, MSFT: 508, GOOGL: 281, PLTR: 178, COIN: 318,
+  MSTR: 302, SMCI: 44, AVGO: 352, MU: 236, NFLX: 1110, SOFI: 28, HOOD: 128, MARA: 17, RIVN: 14, UBER: 94, SHOP: 158,
+  ARM: 152, CRWD: 528, SNOW: 251, INTC: 37, BA: 198, DKNG: 31, RBLX: 118, AFRM: 71, NIO: 6.4,
+  SPY: 672, QQQ: 610, IWM: 243, "^VIX": 17 };
+const DEMO_VOL = { NVDA: 2.4e8, TSLA: 1e8, AMD: 5e7, AAPL: 5.5e7, META: 1.3e7, AMZN: 4.5e7, MSFT: 2e7, GOOGL: 3e7, PLTR: 6e7, COIN: 1e7,
+  MSTR: 1.2e7, SMCI: 3e7, AVGO: 2.2e7, MU: 2.5e7, NFLX: 4e6, SOFI: 7e7, HOOD: 3.5e7, MARA: 5e7, RIVN: 3.5e7, UBER: 2e7,
+  SHOP: 9e6, ARM: 6e6, CRWD: 3e6, SNOW: 5e6, INTC: 9e7, BA: 9e6, DKNG: 1e7, RBLX: 7e6, AFRM: 8e6, NIO: 6e7,
+  SPY: 7e7, QQQ: 4.5e7, IWM: 3e7, "^VIX": 0 };
 
-  const out = {};
-  for (const [sym, name] of UNIVERSE) {
-    const r = prng(day * 977 + sym.split("").reduce((s, c) => s * 31 + c.charCodeAt(0), 7));
-    const vol = 0.009 + r() * 0.022;
-    const bars = [];
-    let p = BASE[sym] * (0.85 + r() * 0.2);
-    const drift = (r() - 0.5) * 0.006;
-    for (let i = 70; i >= 1; i--) {
-      const o = p * (1 + gauss(r) * vol * 0.3);
-      const c = o * (1 + drift + gauss(r) * vol);
-      const h = Math.max(o, c) * (1 + r() * vol * 0.6), l = Math.min(o, c) * (1 - r() * vol * 0.6);
-      bars.push({ t: regStart - i * 864e5, o, h, l, c, v: VOL[sym] * (0.6 + r() * 0.8) });
+/** Trading days (weekdays) up to the latest session that has started, oldest first. */
+function demoDays(now, count) {
+  let t = now;
+  if (nyMinutes(t) < 570) t -= 864e5;
+  const out = [];
+  while (out.length < count) {
+    const wd = new Date(nyOpen(t)).getUTCDay();
+    if (wd !== 0 && wd !== 6) out.unshift(nyOpen(t));
+    t -= 864e5;
+  }
+  return out;
+}
+
+/** Multi-day synthetic history for one symbol: ~70 daily bars + 5-minute bars for the last `sessions` days. */
+function demoSymbol(sym, now, sessions = 22) {
+  const opens = demoDays(now, 70 + sessions);
+  const seed = sym.split("").reduce((s, c) => s * 31 + c.charCodeAt(0), 7) + Math.floor(opens[opens.length - 1] / 864e5) * 977;
+  const r = prng(seed);
+  const isVix = sym === "^VIX";
+  const vol = isVix ? 0.05 : sym.length === 3 && ["SPY", "QQQ", "IWM"].includes(sym) ? 0.007 : 0.009 + r() * 0.022;
+  const V = DEMO_VOL[sym];
+  let p = DEMO_BASE[sym] * (0.85 + r() * 0.2);
+  const drift = (r() - 0.5) * 0.004;
+  const daily = [], intra = [];
+  const live = marketClock(now).state === "open";
+  opens.forEach((open, di) => {
+    const intraday = di >= opens.length - sessions;
+    if (!intraday) {
+      const o = p * (1 + gauss(r) * vol * 0.3), c = o * (1 + drift + gauss(r) * vol);
+      daily.push({ t: open, o, h: Math.max(o, c) * (1 + r() * vol * 0.6), l: Math.min(o, c) * (1 - r() * vol * 0.6), c, v: V * (0.6 + r() * 0.8) });
       p = c;
+      return;
     }
     const hot = r() < 0.3;
     const gap = gauss(r) * vol * (hot ? 1.4 : 0.4);
-    const iDrift = (hot ? Math.sign(gap || 1) * (0.3 + r() * 0.7) : r() - 0.5) * vol * 0.011;
+    const follow = hot ? (r() < 0.62 ? 1 : -1) : 0; // hot gaps tend to follow through
+    const iDrift = (hot ? Math.sign(gap || 1) * follow * (0.3 + r() * 0.7) : r() - 0.5) * vol * 0.011;
     const rv = hot ? 1.6 + r() * 2.2 : 0.7 + r() * 0.7;
-    const ib = [];
+    const last = di === opens.length - 1;
+    const n = last && live ? Math.min(78, Math.floor((now - open) / 300000) + 1) : 78;
     let q = p * (1 + gap);
-    for (let i = 0; i < Math.min(minsIn, 78); i++) {
+    const ib = [];
+    for (let i = 0; i < 78; i++) { // always draw all bars so the RNG stream is stable through the day
       const o = q, c = o * (1 + iDrift + gauss(r) * vol * 0.07);
       const shape = 1.8 - 1.4 * Math.sin((i / 77) * Math.PI);
-      ib.push({ t: regStart + i * 300000, o, h: Math.max(o, c) * (1 + r() * vol * 0.05), l: Math.min(o, c) * (1 - r() * vol * 0.05), c, v: (VOL[sym] / 78) * rv * shape });
+      const b = { t: open + i * 300000, o, h: Math.max(o, c) * (1 + r() * vol * 0.05), l: Math.min(o, c) * (1 - r() * vol * 0.05), c, v: (V / 78) * rv * shape };
+      if (i < n) ib.push(b);
       q = c;
     }
-    const meta = { price: q, prevClose: p, name, regularStart: regStart, regularEnd: regStart + 390 * 60000 };
-    const social = hot ? Math.round(20 + r() * 140) : Math.round(r() * 25);
-    const newsN = hot ? 2 + Math.floor(r() * 5) : Math.floor(r() * 2);
-    const tone = Math.sign(gap) * (0.2 + r() * 0.5);
+    intra.push(...ib);
+    daily.push({ t: open, o: ib[0].o, h: Math.max(...ib.map((b) => b.h)), l: Math.min(...ib.map((b) => b.l)), c: ib[ib.length - 1].c, v: ib.reduce((s, b) => s + b.v, 0) });
+    p = ib[ib.length - 1].c;
+    if (last) daily.hot = hot, daily.gap = gap;
+  });
+  // keep demo prices anchored near realistic levels: rescale the whole path to end close to the base price
+  const f = (DEMO_BASE[sym] * (0.93 + r() * 0.14)) / p;
+  for (const b of daily.concat(intra)) { b.o *= f; b.h *= f; b.l *= f; b.c *= f; }
+  p *= f;
+  const lastOpen = opens[opens.length - 1];
+  const today = intra.filter((b) => b.t >= lastOpen);
+  const prevClose = daily[daily.length - 2].c;
+  return {
+    r, hot: daily.hot, gap: daily.gap,
+    daily: { bars: daily, meta: { price: p, prevClose, name: sym } },
+    intra: { bars: intra, meta: { prevClose } },
+    today: { bars: today, meta: { price: p, prevClose, regularStart: lastOpen, regularEnd: lastOpen + 390 * 60000 } },
+  };
+}
+
+export function demoMarket(now = Date.now()) {
+  const out = {};
+  for (const [sym, name] of UNIVERSE) {
+    const s = demoSymbol(sym, now);
+    const r = s.r;
+    const social = s.hot ? Math.round(20 + r() * 140) : Math.round(r() * 25);
+    const newsN = s.hot ? 2 + Math.floor(r() * 5) : Math.floor(r() * 2);
+    const tone = Math.sign(s.gap) * (0.2 + r() * 0.5);
     out[sym] = {
-      daily: { bars, meta },
-      intraday: ib.length ? { bars: ib, meta } : null,
+      daily: s.daily,
+      intraday: s.today.bars.length ? s.today : null,
       news: Array.from({ length: newsN }, (_, k) => ({ title: `${name} ${tone > 0 ? "shares rise" : "shares slip"} (demo headline ${k + 1})`, source: "Demo", sentiment: tone })),
       social,
       stBull: clamp(0.5 + tone * 0.6 + (r() - 0.5) * 0.2),
     };
   }
   return out;
+}
+
+export function demoContext(now = Date.now()) {
+  return CONTEXT.map(([sym, label]) => contextTile(sym, label, demoSymbol(sym, now, 1).today)).filter(Boolean);
+}
+
+export function demoBacktestData(now = Date.now(), sessions = 22) {
+  return Object.fromEntries(UNIVERSE.map(([sym]) => {
+    const s = demoSymbol(sym, now, sessions);
+    return [sym, { daily: s.daily, intra: s.intra }];
+  }));
 }
 
 export function analyzeMarket(data, now = Date.now()) {

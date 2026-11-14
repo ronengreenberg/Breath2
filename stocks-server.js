@@ -3,15 +3,17 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import market from "./api/market.js";
+import backtest from "./api/backtest.js";
+const API = { "/api/market": market, "/api/backtest": backtest };
 
 const ROOT = join(import.meta.dirname, "public");
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml" };
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://x");
-  if (url.pathname === "/api/market") {
+  if (API[url.pathname]) {
     res.status = (c) => { res.statusCode = c; return { json: (b) => { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify(b)); } }; };
-    return market(req, res);
+    return API[url.pathname](req, res);
   }
   let p = normalize(url.pathname).replace(/^(\.\.[/\\])+/, "");
   if (p.endsWith("/")) p += "index.html";
